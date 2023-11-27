@@ -10,16 +10,15 @@ computer program. It is used for creating and evolving programs used in the
 # License: BSD 3 clause
 
 from copy import copy
-
 import numpy as np
 from sklearn.utils.random import sample_without_replacement
-
 from .functions import _Function
 from .utils import check_random_state
-
+import warnings
+from copy import  deepcopy
+warnings.filterwarnings("ignore")
 
 class _Program(object):
-
     """A program-like representation of the evolved program.
 
     This is the underlying data-structure used by the public classes in the
@@ -162,58 +161,88 @@ class _Program(object):
         self._max_samples = None
         self._indices_state = None
 
+
     def build_program(self, random_state):
-        """Build a naive random program.
+        """
+        构建原生的随机表达式
 
         Parameters
         ----------
         random_state : RandomState instance
-            The random number generator.
+            随机状态生成
 
         Returns
         -------
         program : list
-            The flattened tree representation of the program.
+            展平的树结构的表达式（具体的解读方式类似于编译器对栈元素的解读）.
 
         """
         if self.init_method == 'half and half':
             method = ('full' if random_state.randint(2) else 'grow')
         else:
             method = self.init_method
+        # 确定了每次增加的最大深度
         max_depth = random_state.randint(*self.init_depth)
 
         # Start a program with a function to avoid degenerative programs
+        # 随机选择第一个初始的函数算子
         function = random_state.randint(len(self.function_set))
-        function = self.function_set[function]
-        program = [function]
-        terminal_stack = [function.arity]
+        function = deepcopy(self.function_set[function])
 
+        program = [function]
+        # 增加该算子需要的参数值
+        terminal_stack = [function.arity]
+        terminal_value_stack = []
+        # 当terminal_stack 的参数值没有被填满，表达式不充实的时候
         while terminal_stack:
+            # 查看栈的深度
             depth = len(terminal_stack)
+            # 能选择的特征和其他算子总共有哪些
             choice = self.n_features + len(self.function_set)
+            # 随机选择算子
             choice = random_state.randint(choice)
             # Determine if we are adding a function or terminal
+            # 决定了我们是增加一个新的函数还是算子
             if (depth < max_depth) and (method == 'full' or
                                         choice <= len(self.function_set)):
                 function = random_state.randint(len(self.function_set))
-                function = self.function_set[function]
+                function = deepcopy(self.function_set[function])
                 program.append(function)
                 terminal_stack.append(function.arity)
             else:
                 # We need a terminal, add a variable or constant
                 if self.const_range is not None:
+                    # 生成特征还是常数
                     terminal = random_state.randint(self.n_features + 1)
+                    # 如果说:
+                    # 1. 当前的值是因子，且和之前的值相同，则重新生成因子
+                    while True:
+                        if (terminal in terminal_value_stack and terminal != self.n_features):
+                            terminal = random_state.randint(self.n_features + 1)
+                        else:
+                            break
+
                 else:
                     terminal = random_state.randint(self.n_features)
+
                 if terminal == self.n_features:
-                    terminal = random_state.uniform(*self.const_range)
+                    # 这段代码确保了生成的 terminal 值既符合给定的范围，又不会是零，同时精确到小数点后三位
+                    terminal = round(random_state.uniform(*self.const_range),3)
+                    while True:
+                        if terminal==0:
+                            terminal = random_state.uniform(*self.const_range)
+                        else:
+                            break
                     if self.const_range is None:
                         # We should never get here
                         raise ValueError('A constant was produced with '
                                          'const_range=None.')
                 program.append(terminal)
                 terminal_stack[-1] -= 1
+                if terminal_stack[-1]>0:
+                    terminal_value_stack.append(terminal)
                 while terminal_stack[-1] == 0:
+                    terminal_value_stack = []
                     terminal_stack.pop()
                     if not terminal_stack:
                         return program
@@ -239,8 +268,11 @@ class _Program(object):
         """Overloads `print` output of the object to resemble a LISP tree."""
         terminals = [0]
         output = ''
+        RandomFunctionStack = []
+        # RandomFunctionStack[0].arity = 0
         for i, node in enumerate(self.program):
             if isinstance(node, _Function):
+                RandomFunctionStack.append(deepcopy(node))
                 terminals.append(node.arity)
                 output += node.name + '('
             else:
@@ -252,12 +284,23 @@ class _Program(object):
                 else:
                     output += '%.3f' % node
                 terminals[-1] -= 1
+
+                if len(RandomFunctionStack)>0:
+                    RandomFunctionStack[-1].arity -= 1
+                    
                 while terminals[-1] == 0:
+                    RandomFunctionStack.pop()
                     terminals.pop()
+
                     terminals[-1] -= 1
-                    output += ')'
+                    if len(RandomFunctionStack)>0:
+                        RandomFunctionStack[-1].arity -= 1
+                        output += ')'
+                    else:
+                        output += ')'
                 if i != len(self.program) - 1:
                     output += ', '
+
         return output
 
     def export_graphviz(self, fade_nodes=None):
@@ -386,6 +429,45 @@ class _Program(object):
 
         # We should never get here
         return None
+    
+    def execute_3D(self, X):
+        
+        # Check for single-node programs
+        node = self.program[0]
+
+        if isinstance(node, float):
+            return np.tile(node, (X.shape[0], X.shape[2]))
+        if isinstance(node, int):
+            return X[:, node, :]
+
+        apply_stack = []
+
+        for node in self.program:
+
+            if isinstance(node, _Function):
+                apply_stack.append([node])
+            else:
+                # Lazily evaluate later
+                # print(apply_stack)
+                # print(node.__str__())
+                apply_stack[-1].append(node)
+
+            while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+                # Apply functions that have sufficient arguments
+                function = apply_stack[-1][0]
+                terminals = [np.tile(t, (X.shape[0],X.shape[2])) if isinstance(t, float) 
+                             else X[:,t,:] if isinstance(t, int) 
+                             else t for t in apply_stack[-1][1:]]
+                intermediate_result = function(*terminals)
+                if len(apply_stack) != 1:
+                    apply_stack.pop()
+                    apply_stack[-1].append(intermediate_result)
+                else:
+                    return intermediate_result
+
+        # We should never get here
+        return None
+
 
     def get_all_indices(self, n_samples=None, max_samples=None,
                         random_state=None):
@@ -465,6 +547,35 @@ class _Program(object):
         raw_fitness = self.metric(y, y_pred, sample_weight)
 
         return raw_fitness
+
+    def raw_fitness_3D(self, X, y, sample_weight):
+        """Evaluate the raw fitness of the program according to X, y.
+
+        Parameters
+        ----------
+        X : {array-like}, shape = [n_samples, n_features]
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+
+        y : array-like, shape = [n_samples]
+            Target values.
+
+        sample_weight : array-like, shape = [n_samples]
+            Weights applied to individual samples.
+
+        Returns
+        -------
+        raw_fitness : float
+            The raw fitness of the program.
+
+        """
+        y_pred = self.execute_3D(X)
+        if self.transformer:
+            y_pred = self.transformer(y_pred)
+        raw_fitness = self.metric(y, y_pred, sample_weight)
+
+        return raw_fitness
+
 
     def fitness(self, parsimony_coefficient=None):
         """Evaluate the penalized fitness of the program according to X, y.

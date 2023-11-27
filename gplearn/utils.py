@@ -74,3 +74,47 @@ def _partition_estimators(n_estimators, n_jobs):
     starts = np.cumsum(n_estimators_per_job)
 
     return n_jobs, n_estimators_per_job.tolist(), [0] + starts.tolist()
+
+
+def _syntax_adapter(formulation:str):
+    '''
+
+    Args:
+        formulation: 待解析的语法字符串
+
+    Returns: 字典{'TOT':["condition a","condition b"]}
+
+    '''
+    elements = formulation.split(" ")
+    iter_combination = ""
+    adapted_dictionary={}
+    register_flag = ""
+    for pos,element in enumerate(elements):
+        if element == "TOT" or element == "TRA" or element == "OOB":
+            if len(iter_combination)>0:
+                adapted_dictionary[register_flag].append(iter_combination)
+            register_flag = element
+            iter_combination = ""
+            if element not in adapted_dictionary.keys():
+                adapted_dictionary[element] = []
+            continue
+        iter_combination = iter_combination+element
+        if pos==len(elements)-1:
+            adapted_dictionary[register_flag].append(iter_combination)
+
+    return adapted_dictionary
+
+
+def check_floats(input_list,data):
+    for item in input_list:
+        if isinstance(item, float) and round(item, 3) == data:
+            return True
+    return False
+
+
+
+
+
+
+
+
