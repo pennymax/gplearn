@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from .functions import _Function
+from joblib import wrap_non_picklable_objects
 
 def error_state_decorator(func):
     def wrapper(A, *args, **kwargs):
@@ -90,7 +91,38 @@ def rolling_rank(A, window=5):
 def pow(A, pow=2):
     return np.power(A,pow)
 
+
 _extra_function_map = {
+    'rank': _Function(function=wrap_non_picklable_objects(lambda x: rank(x)), name = 'rank', arity=1),
+    'scale_1': _Function(function=wrap_non_picklable_objects(lambda x: scale(x, 1)), name = 'scale_1', arity=1),
+    'power_2': _Function(function=wrap_non_picklable_objects(lambda x: pow(x, 2)), name = 'power_2', arity=1),
+    'power_3': _Function(function=wrap_non_picklable_objects(lambda x: pow(x, 3)), name = 'power_3', arity=1),
+}
+
+rolling_windows = [1, 3, 5, 10, 20]
+# ts mean
+_extra_function_map.update({f'ts_mean_{w}': _Function(function=wrap_non_picklable_objects(lambda x: rolling_nanmean(x, w)), name=f'ts_mean_{w}', arity=1) for w in rolling_windows})
+# ts max
+_extra_function_map.update({f'ts_max_{w}': _Function(function=wrap_non_picklable_objects(lambda x: rolling_max(x, w)), name=f'ts_max_{w}', arity=1) for w in rolling_windows})
+# ts min
+_extra_function_map.update({f'ts_min_{w}': _Function(function=wrap_non_picklable_objects(lambda x: rolling_min(x, w)), name=f'ts_min_{w}', arity=1) for w in rolling_windows})
+# ts std
+_extra_function_map.update({f'ts_std_{w}': _Function(function=wrap_non_picklable_objects(lambda x: rolling_nanstd(x, w)), name=f'ts_std_{w}', arity=1) for w in rolling_windows if w >=5})
+# ts corr
+_extra_function_map.update({f'ts_correlation_{w}': _Function(function=wrap_non_picklable_objects(lambda x, y: rolling_correlation(x, y, w)), name=f'ts_correlation_{w}', arity=2) for w in rolling_windows if w >=3})
+# ts argmin
+_extra_function_map.update({f'ts_argmin_{w}': _Function(function=wrap_non_picklable_objects(lambda x: rolling_argmin(x, w)), name=f'ts_argmin_{w}', arity=1) for w in rolling_windows if w >=3})
+# ts argmax
+_extra_function_map.update({f'ts_argmax_{w}': _Function(function=wrap_non_picklable_objects(lambda x: rolling_argmax(x, w)), name=f'ts_argmax_{w}', arity=1) for w in rolling_windows if w >=3})
+# ts rank
+_extra_function_map.update({f'ts_rank_{w}': _Function(function=wrap_non_picklable_objects(lambda x: rolling_rank(x, w)), name=f'ts_rank_{w}', arity=1) for w in rolling_windows if w >=3})
+# ts delay
+_extra_function_map.update({f'delay_{w}': _Function(function=wrap_non_picklable_objects(lambda x: delay(x, w)), name=f'delay_{w}', arity=1) for w in rolling_windows})
+# ts delta
+_extra_function_map.update({f'delta_{w}': _Function(function=wrap_non_picklable_objects(lambda x: delta(x, w)), name=f'delta_{w}', arity=1) for w in rolling_windows})
+
+
+_extra_function_map_old = {
     'ts_std_5': _Function(function=lambda x: rolling_nanstd(x, 5), name='ts_std_5', arity=1),
     'ts_mean_5': _Function(function=lambda x: rolling_nanmean(x, 5), name='ts_mean_5', arity=1),
     'ts_max_5': _Function(function=lambda x: rolling_max(x, 5), name='ts_max_5', arity=1),

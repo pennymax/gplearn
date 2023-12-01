@@ -9,9 +9,9 @@ def compute_IC(y, y_pred, w, rank_ic=True):
     y = y[w.astype(bool)]
     y_pred = y_pred[w.astype(bool)]
     if rank_ic:
-        ic = pd.DataFrame(y_pred).corrwith(pd.DataFrame(y),axis = 1, method = "spearman")
+        ic = pd.DataFrame(y_pred).corrwith(pd.DataFrame(y),axis = 1, method = "spearman").fillna(0)  # use fillna(0) to avoid getting high corr value if majorities are NaN
     else:
-        ic = pd.DataFrame(y_pred).corrwith(pd.DataFrame(y),axis = 1, method = "pearson")
+        ic = pd.DataFrame(y_pred).corrwith(pd.DataFrame(y),axis = 1, method = "pearson").fillna(0)
     return ic 
 
 def _rank_IC(y, y_pred, w):
@@ -31,17 +31,19 @@ def _rank_ICIR(y, y_pred, w):
     else:
         return abs(icir)
     
-def compute_quantile10_rets(y, y_pred, w):
+def compute_quantile_rets(y, y_pred, w, quantiles):
     y_pred = y_pred[w.astype(bool)]
     y = y[w.astype(bool)]
     if np.all(np.isnan(y_pred)):
         return None
     
-    quantiles = 10
-    annulization = 252 #默认按日频年化收益  #TODO
+    annulization = 365 * 3 #默认8h  #TODO
     groups = np.array(range(quantiles)) + 1
-
-    factor_quantiles = pd.DataFrame(y_pred).rank(axis=1,method='first').dropna(axis=0, how='all').apply(pd.qcut, q=quantiles, labels = groups,axis=1)
+    
+    try:
+        factor_quantiles = pd.DataFrame(y_pred).rank(axis=1,method='first').dropna(axis=0, how='all').apply(pd.qcut, q=quantiles, labels=groups, axis=1, duplicates='drop')
+    except:
+        return None
 
     rets = pd.DataFrame(y)
     return_series = {}
@@ -51,7 +53,7 @@ def compute_quantile10_rets(y, y_pred, w):
     return return_series
 
 def _quantile10_max(y, y_pred, w):
-    res = compute_quantile10_rets(y, y_pred, w)
+    res = compute_quantile_rets(y, y_pred, w, 10)
     if res is None:
         return 0
     else:
@@ -66,22 +68,36 @@ def measure_monotonicity(data):
     return monotonicity_score
 
 def _quantile10_monotonicity(y, y_pred, w):
-    res = compute_quantile10_rets(y, y_pred, w)
+    res = compute_quantile_rets(y, y_pred, w, 10)
     if res is None:
         return 0
     else:
         return measure_monotonicity(res.values())
+
+def _quantile20_longshort(y, y_pred, w):
+    quantiles = 20
+    res = compute_quantile_rets(y, y_pred, w, quantiles)
+    if res is None:
+        return 0
+    else:
+        ret = abs(res[quantiles] - res[1]) / 2 # annualized longshort (not full time span）
+        if np.isnan(ret):
+            return 0
+        else:
+            return ret
     
 weighted_rank_ic = _Fitness(function=_rank_IC,greater_is_better=True)
 weighted_rank_icir = _Fitness(function=_rank_ICIR,greater_is_better=True)
 weighted_quantile_max = _Fitness(function=_quantile10_max,greater_is_better=True)
 weighted_quantile_mono = _Fitness(function=_quantile10_monotonicity,greater_is_better=True)
+weighted_quantile_longshort = _Fitness(function=_quantile20_longshort,greater_is_better=True)
 
 _extra_fitness_map = {
-    "rank_ic":weighted_rank_ic,
-    "rank_icir":weighted_rank_icir,
-    "quantile_max":weighted_quantile_max,
-    "quantile_mono":weighted_quantile_mono,
+    "rank_ic": weighted_rank_ic,
+    "rank_icir": weighted_rank_icir,
+    "quantile_max": weighted_quantile_max,
+    "quantile_mono": weighted_quantile_mono,
+    "quantile_longshort": weighted_quantile_longshort, 
 }
 
 

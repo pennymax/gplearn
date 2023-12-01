@@ -33,7 +33,7 @@ from .fitness import _fitness_map, _Fitness
 from .functions import _function_map, _Function, sig1 as sigmoid
 from .utils import _partition_estimators
 from .utils import check_random_state
-from .extra_functions import _extra_function_map
+from .extra_functions import _extra_function_map, _extra_function_map_old
 from .extra_fitness import _extra_fitness_map
 
 
@@ -157,11 +157,9 @@ def _parallel_evolve_3D(n_programs, parents, X, y, sample_weight, seeds, params)
         if max_samples < 1.0:
             # Calculate OOB fitness
             program.oob_fitness_ = program.raw_fitness_3D(X, y, oob_sample_weight)
-        print(
-            "\r正在生成表达式{}/{} {:.2f}%".format(len(programs), n_programs, float(len(programs) / n_programs * 100)),
-            end="")
+        # print("\r正在生成表达式{}/{} {:.2f}%".format(len(programs), n_programs, float(len(programs) / n_programs * 100)), end="")
         programs.append(program)
-    print(" | 表达式生成完成")
+    # print(" | 表达式生成完成")
     return programs
 
 def _parallel_evolve(n_programs, parents, X, y, sample_weight, seeds, params):
