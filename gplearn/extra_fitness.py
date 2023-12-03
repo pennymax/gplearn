@@ -31,7 +31,7 @@ def _rank_ICIR(y, y_pred, w):
     else:
         return abs(icir)
     
-def compute_quantile_rets(y, y_pred, w, quantiles):
+def compute_quantile_rets_ori(y, y_pred, w, quantiles):
     y_pred = y_pred[w.astype(bool)]
     y = y[w.astype(bool)]
     if np.all(np.isnan(y_pred)):
@@ -52,12 +52,49 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
         return_series[group] = (returns_group.sum(axis=1) / returns_group.count(axis=1)).mean() * annulization # scale holding to 1 ; equal weights
     return return_series
 
+def compute_quantile_rets(y, y_pred, w, quantiles):
+    y_pred = y_pred[w.astype(bool)]
+    y = y[w.astype(bool)]
+    if np.all(np.isnan(y_pred)):
+        return None
+    
+    rets = pd.DataFrame(y)
+    factor = pd.DataFrame(y_pred)
+
+    ## use y (return) to mask y_pred to set 0 on all invaid cells to nan
+    factor = factor.mask(rets.isna())
+    
+    annulization = 365 * 3 #默认8h  #TODO
+    groups = np.array(range(quantiles)) + 1
+    
+    try:
+        factor_quantiles = (
+            factor
+            .rank(axis=1,method='first')
+            .dropna(axis=0, how='all')
+            .apply(pd.qcut, q=quantiles, labels=groups, axis=1, duplicates='drop')
+            )
+    except:
+        return None
+    
+    stacked_rets = rets.stack()
+    stacked_factor_quantiles = factor_quantiles.stack()
+    grouped_returns = (
+        stacked_rets
+        .groupby([stacked_rets.index.get_level_values(0), stacked_factor_quantiles])
+        .mean()
+        .unstack()
+        .mean()
+        * annulization
+        ) 
+    return grouped_returns
+
 def _quantile10_max(y, y_pred, w):
     res = compute_quantile_rets(y, y_pred, w, 10)
     if res is None:
         return 0
     else:
-        return max(res.values())
+        return max(res.values)
     
 def measure_monotonicity(data):
     ranks = [sorted(data).index(x) + 1 for x in data]
@@ -72,7 +109,7 @@ def _quantile10_monotonicity(y, y_pred, w):
     if res is None:
         return 0
     else:
-        return measure_monotonicity(res.values())
+        return measure_monotonicity(res.values)
 
 def _quantile20_longshort(y, y_pred, w):
     quantiles = 20

@@ -157,6 +157,8 @@ def _parallel_evolve_3D(n_programs, parents, X, y, sample_weight, seeds, params)
         if max_samples < 1.0:
             # Calculate OOB fitness
             program.oob_fitness_ = program.raw_fitness_3D(X, y, oob_sample_weight)
+        else:
+            program.oob_fitness_ = None
         # print("\r正在生成表达式{}/{} {:.2f}%".format(len(programs), n_programs, float(len(programs) / n_programs * 100)), end="")
         programs.append(program)
     # print(" | 表达式生成完成")
@@ -1933,14 +1935,14 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
         return result
 
 
-    def show_program_simple(self, baseline=False,):
+    def show_program_simple(self, baseline=False):
         result = []
         
         if baseline:
             for program in self._total_program:
                 result.append({"Expression": program.__str__(),
                                         "Fitness": program.raw_fitness_,
-                                        "OOB Fitness": program.oob_fitness_,
+                                        "OOB Fitness": program.oob_fitness_
                                         })
         else:            
             for program in self._best_programs:
