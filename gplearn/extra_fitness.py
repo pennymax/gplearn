@@ -4,6 +4,8 @@ import pandas as pd
 from .fitness import _Fitness
 
 
+_annulization = 365 * 3 #默认8h  #TODO
+_fee = 0.001
 
 def compute_IC(y, y_pred, w, rank_ic=True):
     y = y[w.astype(bool)]
@@ -37,7 +39,6 @@ def compute_quantile_rets_ori(y, y_pred, w, quantiles):
     if np.all(np.isnan(y_pred)):
         return None
     
-    annulization = 365 * 3 #默认8h  #TODO
     groups = np.array(range(quantiles)) + 1
     
     try:
@@ -49,14 +50,22 @@ def compute_quantile_rets_ori(y, y_pred, w, quantiles):
     return_series = {}
     for group in groups:
         returns_group = rets[factor_quantiles == group]
-        return_series[group] = (returns_group.sum(axis=1) / returns_group.count(axis=1)).mean() * annulization # scale holding to 1 ; equal weights
+        return_series[group] = (returns_group.sum(axis=1) / returns_group.count(axis=1)).mean() * _annulization # scale holding to 1 ; equal weights
     return return_series
+
+def turnover_rate(df):
+    df = df.notna()
+    per_bar_changes = df.diff().abs().sum(axis=1) / 2
+    per_bar_count = df.sum(axis=1)
+    rates = per_bar_changes / per_bar_count.shift()
+    avg_rate = rates.mean()
+    return avg_rate
 
 def compute_quantile_rets(y, y_pred, w, quantiles):
     y_pred = y_pred[w.astype(bool)]
     y = y[w.astype(bool)]
     if np.all(np.isnan(y_pred)):
-        return None
+        return None, None
     
     rets = pd.DataFrame(y)
     factor = pd.DataFrame(y_pred)
@@ -64,7 +73,6 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
     ## use y (return) to mask y_pred to set 0 on all invaid cells to nan
     factor = factor.mask(rets.isna())
     
-    annulization = 365 * 3 #默认8h  #TODO
     groups = np.array(range(quantiles)) + 1
     
     try:
@@ -75,7 +83,7 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
             .apply(pd.qcut, q=quantiles, labels=groups, axis=1, duplicates='drop')
             )
     except:
-        return None
+        return None, None
     
     stacked_rets = rets.stack()
     stacked_factor_quantiles = factor_quantiles.stack()
@@ -85,12 +93,12 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
         .mean()
         .unstack()
         .mean()
-        * annulization
+        * _annulization
         ) 
-    return grouped_returns
+    return grouped_returns, factor_quantiles
 
 def _quantile10_max(y, y_pred, w):
-    res = compute_quantile_rets(y, y_pred, w, 10)
+    res, _ = compute_quantile_rets(y, y_pred, w, 10)
     if res is None:
         return 0
     else:
@@ -105,15 +113,15 @@ def measure_monotonicity(data):
     return monotonicity_score
 
 def _quantile10_monotonicity(y, y_pred, w):
-    res = compute_quantile_rets(y, y_pred, w, 10)
+    res, _ = compute_quantile_rets(y, y_pred, w, 10)
     if res is None:
         return 0
     else:
         return measure_monotonicity(res.values)
 
-def _quantile20_longshort(y, y_pred, w):
-    quantiles = 20
-    res = compute_quantile_rets(y, y_pred, w, quantiles)
+def _quantile35_longshort(y, y_pred, w):
+    quantiles = 35
+    res, _ = compute_quantile_rets(y, y_pred, w, quantiles)
     if res is None:
         return 0
     else:
@@ -122,12 +130,29 @@ def _quantile20_longshort(y, y_pred, w):
             return 0
         else:
             return ret
+
+def _quantile35_longshort_fee(y, y_pred, w):
+    quantiles = 35
+    res, factor_quantiles = compute_quantile_rets(y, y_pred, w, quantiles)
+    if res is None or factor_quantiles is None:
+        return 0
+    else:
+        ret = abs(res[quantiles] - res[1]) / 2 # annualized longshort (not full time span）
+        if np.isnan(ret):
+            return 0
+        else:
+            long_turnover = turnover_rate(factor_quantiles[factor_quantiles == quantiles])
+            short_turnover = turnover_rate(factor_quantiles[factor_quantiles == 1])
+            avg_turnover = (long_turnover + short_turnover) / 2
+            ret_fee = ret - avg_turnover * _fee * _annulization
+            return ret_fee
     
 weighted_rank_ic = _Fitness(function=_rank_IC,greater_is_better=True)
 weighted_rank_icir = _Fitness(function=_rank_ICIR,greater_is_better=True)
 weighted_quantile_max = _Fitness(function=_quantile10_max,greater_is_better=True)
 weighted_quantile_mono = _Fitness(function=_quantile10_monotonicity,greater_is_better=True)
-weighted_quantile_longshort = _Fitness(function=_quantile20_longshort,greater_is_better=True)
+weighted_quantile_longshort = _Fitness(function=_quantile35_longshort,greater_is_better=True)
+weighted_quantile_longshort_fee = _Fitness(function=_quantile35_longshort_fee,greater_is_better=True)
 
 _extra_fitness_map = {
     "rank_ic": weighted_rank_ic,
@@ -135,6 +160,7 @@ _extra_fitness_map = {
     "quantile_max": weighted_quantile_max,
     "quantile_mono": weighted_quantile_mono,
     "quantile_longshort": weighted_quantile_longshort, 
+    "quantile_longshort_fee": weighted_quantile_longshort_fee, 
 }
 
 

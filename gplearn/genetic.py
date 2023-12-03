@@ -559,7 +559,7 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
             
         ##################遗传算法从这开始#########################################################################
         if baseline is not None:
-            self._total_program = []
+            self._total_program = {}
         for gen in range(prior_generations, self.generations):
 
             start_time = time()
@@ -596,7 +596,8 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
             if baseline is not None:
                 for program in population:
                     if program.raw_fitness_ > baseline:
-                        self._total_program.append(program)
+                        # self._total_program.append(program)
+                        self._total_program[program.__str__()] = program
 
             fitness = [program.raw_fitness_ for program in population]
             length = [program.length_ for program in population]
@@ -1897,7 +1898,7 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
         oob_sample_weight = np.where(sample_weight > 0, 0, 1)
 
         result = []
-        for program in self._total_program if baseline else self._best_programs: 
+        for program in self._total_program.values() if baseline else self._best_programs: 
             Y_pred = program.execute_3D(X)
 
             rank_ic = "_fitness_map['rank_ic'](Y,Y_pred,sample_weight)"
@@ -1939,7 +1940,7 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
         result = []
         
         if baseline:
-            for program in self._total_program:
+            for program in self._total_program.values():
                 result.append({"Expression": program.__str__(),
                                         "Fitness": program.raw_fitness_,
                                         "OOB Fitness": program.oob_fitness_
