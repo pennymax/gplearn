@@ -7,7 +7,15 @@ from .fitness import _Fitness
 _annulization = 365 * 3 #默认8h  #TODO
 _fee = 0.001
 
+def is_bad_data(y_pred, thresh=0.7):
+    total_cs = y_pred.shape[0]
+    all_na_cs = np.sum(np.all(np.isnan(y_pred), axis=1))
+    return all_na_cs / total_cs >= thresh
+
+
 def compute_IC(y, y_pred, w, rank_ic=True):
+    if is_bad_data(y_pred):
+        return 0
     y = y[w.astype(bool)]
     y_pred = y_pred[w.astype(bool)]
     if rank_ic:
@@ -17,6 +25,8 @@ def compute_IC(y, y_pred, w, rank_ic=True):
     return ic 
 
 def _rank_IC(y, y_pred, w):
+    if is_bad_data(y_pred):
+        return 0
     ic = compute_IC(y, y_pred, w).mean()
     if np.isnan(ic):
         return 0
@@ -24,6 +34,8 @@ def _rank_IC(y, y_pred, w):
         return abs(ic)
 
 def _rank_ICIR(y, y_pred, w):
+    if is_bad_data(y_pred):
+        return 0
     ics = compute_IC(y, y_pred, w)
     ic = ics.mean()
     ic_std = ics.std()
@@ -98,6 +110,9 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
     return grouped_returns, factor_quantiles
 
 def _quantile10_max(y, y_pred, w):
+    if is_bad_data(y_pred):
+        return 0
+    
     res, _ = compute_quantile_rets(y, y_pred, w, 10)
     if res is None:
         return 0
@@ -113,6 +128,9 @@ def measure_monotonicity(data):
     return monotonicity_score
 
 def _quantile10_monotonicity(y, y_pred, w):
+    if is_bad_data(y_pred):
+        return 0
+    
     res, _ = compute_quantile_rets(y, y_pred, w, 10)
     if res is None:
         return 0
@@ -120,6 +138,9 @@ def _quantile10_monotonicity(y, y_pred, w):
         return measure_monotonicity(res.values)
 
 def _quantile35_longshort(y, y_pred, w):
+    if is_bad_data(y_pred):
+        return 0
+    
     quantiles = 35
     res, _ = compute_quantile_rets(y, y_pred, w, quantiles)
     if res is None:
@@ -132,6 +153,9 @@ def _quantile35_longshort(y, y_pred, w):
             return ret
 
 def _quantile35_longshort_fee(y, y_pred, w):
+    if is_bad_data(y_pred):
+        return 0
+    
     quantiles = 35
     res, factor_quantiles = compute_quantile_rets(y, y_pred, w, quantiles)
     if res is None or factor_quantiles is None:
