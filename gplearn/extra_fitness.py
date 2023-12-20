@@ -161,6 +161,8 @@ def _quantile35_longshort_fee(y, y_pred, w):
     if res is None or factor_quantiles is None:
         return 0
     else:
+        if quantiles not in res.index or 1 not in res.index:
+            return 0
         ret = abs(res[quantiles] - res[1]) / 2 # annualized longshort (not full time span）
         if np.isnan(ret):
             return 0

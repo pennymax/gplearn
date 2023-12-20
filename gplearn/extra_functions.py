@@ -101,11 +101,11 @@ _extra_function_map = {
 
 rolling_windows = [1, 3, 5, 10, 20]
 # ts mean
-_extra_function_map.update({f'ts_mean_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_nanmean(x, w)), name=f'ts_mean_{w}', arity=1) for w in rolling_windows})
+_extra_function_map.update({f'ts_mean_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_nanmean(x, w)), name=f'ts_mean_{w}', arity=1) for w in rolling_windows if w > 1})
 # ts max
-_extra_function_map.update({f'ts_max_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_max(x, w)), name=f'ts_max_{w}', arity=1) for w in rolling_windows})
+_extra_function_map.update({f'ts_max_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_max(x, w)), name=f'ts_max_{w}', arity=1) for w in rolling_windows if w > 1})
 # ts min
-_extra_function_map.update({f'ts_min_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_min(x, w)), name=f'ts_min_{w}', arity=1) for w in rolling_windows})
+_extra_function_map.update({f'ts_min_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_min(x, w)), name=f'ts_min_{w}', arity=1) for w in rolling_windows if w > 1})
 # ts std
 _extra_function_map.update({f'ts_std_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_nanstd(x, w)), name=f'ts_std_{w}', arity=1) for w in rolling_windows if w >=5})
 # ts corr
