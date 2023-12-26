@@ -109,11 +109,11 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
         ) 
     return grouped_returns, factor_quantiles
 
-def _quantile10_max(y, y_pred, w):
+def _quantile35_max(y, y_pred, w):
     if is_bad_data(y_pred):
         return 0
     
-    res, _ = compute_quantile_rets(y, y_pred, w, 10)
+    res, _ = compute_quantile_rets(y, y_pred, w, 35)
     if res is None:
         return 0
     else:
@@ -127,11 +127,11 @@ def measure_monotonicity(data):
     monotonicity_score = abs(positive_differences - negative_differences) / len(data)
     return monotonicity_score
 
-def _quantile10_monotonicity(y, y_pred, w):
+def _quantile35_monotonicity(y, y_pred, w):
     if is_bad_data(y_pred):
         return 0
     
-    res, _ = compute_quantile_rets(y, y_pred, w, 10)
+    res, _ = compute_quantile_rets(y, y_pred, w, 35)
     if res is None:
         return 0
     else:
@@ -175,18 +175,18 @@ def _quantile35_longshort_fee(y, y_pred, w):
     
 weighted_rank_ic = _Fitness(function=_rank_IC,greater_is_better=True)
 weighted_rank_icir = _Fitness(function=_rank_ICIR,greater_is_better=True)
-weighted_quantile_max = _Fitness(function=_quantile10_max,greater_is_better=True)
-weighted_quantile_mono = _Fitness(function=_quantile10_monotonicity,greater_is_better=True)
-weighted_quantile_longshort = _Fitness(function=_quantile35_longshort,greater_is_better=True)
-weighted_quantile_longshort_fee = _Fitness(function=_quantile35_longshort_fee,greater_is_better=True)
+weighted_quantile35_max = _Fitness(function=_quantile35_max,greater_is_better=True)
+weighted_quantile35_mono = _Fitness(function=_quantile35_monotonicity,greater_is_better=True)
+weighted_quantile35_longshort = _Fitness(function=_quantile35_longshort,greater_is_better=True)
+weighted_quantile35_longshort_fee = _Fitness(function=_quantile35_longshort_fee,greater_is_better=True)
 
 _extra_fitness_map = {
     "rank_ic": weighted_rank_ic,
     "rank_icir": weighted_rank_icir,
-    "quantile_max": weighted_quantile_max,
-    "quantile_mono": weighted_quantile_mono,
-    "quantile_longshort": weighted_quantile_longshort, 
-    "quantile_longshort_fee": weighted_quantile_longshort_fee, 
+    "quantile35_max": weighted_quantile35_max,
+    "quantile35_mono": weighted_quantile35_mono,
+    "quantile35_longshort": weighted_quantile35_longshort, 
+    "quantile35_longshort_fee": weighted_quantile35_longshort_fee, 
 }
 
 
