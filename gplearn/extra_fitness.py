@@ -90,7 +90,7 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
     try:
         factor_quantiles = (
             factor
-            .rank(axis=1,method='first')
+            .rank(axis=1, method='first') # method first means assign different ranks on identical values
             .dropna(axis=0, how='all')
             .apply(pd.qcut, q=quantiles, labels=groups, axis=1, duplicates='drop')
             )
@@ -123,7 +123,7 @@ def compute_quantile_rets_fast(y, y_pred, w, quantiles):
     
     ret_qtl = []
     for _, grp in factor.stack().dropna().groupby(level=0, group_keys=True):
-        ranks = grp.rank()
+        ranks = grp.rank(method='first')   # method first means assign different ranks on identical values
         bins = np.linspace(ranks.min(), ranks.max(), quantiles+1)
         qtl = np.searchsorted(bins, ranks, side='left')
         qtl[qtl==0] = 1
@@ -146,7 +146,7 @@ def _quantile35_max(y, y_pred, w):
     if is_bad_data(y_pred):
         return 0
     
-    res, _ = compute_quantile_rets(y, y_pred, w, 35)
+    res, _ = compute_quantile_rets_fast(y, y_pred, w, 35)
     if res is None:
         return 0
     else:
@@ -164,7 +164,7 @@ def _quantile35_monotonicity(y, y_pred, w):
     if is_bad_data(y_pred):
         return 0
     
-    res, _ = compute_quantile_rets(y, y_pred, w, 35)
+    res, _ = compute_quantile_rets_fast(y, y_pred, w, 35)
     if res is None:
         return 0
     else:
@@ -175,7 +175,7 @@ def _quantile35_longshort(y, y_pred, w):
         return 0
     
     quantiles = 35
-    res, _ = compute_quantile_rets(y, y_pred, w, quantiles)
+    res, _ = compute_quantile_rets_fast(y, y_pred, w, quantiles)
     if res is None:
         return 0
     else:
