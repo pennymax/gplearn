@@ -109,6 +109,39 @@ def compute_quantile_rets(y, y_pred, w, quantiles):
         ) 
     return grouped_returns, factor_quantiles
 
+def compute_quantile_rets_fast(y, y_pred, w, quantiles):
+    y_pred = y_pred[w.astype(bool)]
+    y = y[w.astype(bool)]
+    if np.all(np.isnan(y_pred)):
+        return None, None
+    
+    rets = pd.DataFrame(y)
+    factor = pd.DataFrame(y_pred)
+
+    ## use y (return) to mask y_pred to set 0 on all invaid cells to nan
+    factor = factor.mask(rets.isna())
+    
+    ret_qtl = []
+    for _, grp in factor.stack().dropna().groupby(level=0, group_keys=True):
+        ranks = grp.rank()
+        bins = np.linspace(ranks.min(), ranks.max(), quantiles+1)
+        qtl = np.searchsorted(bins, ranks, side='left')
+        qtl[qtl==0] = 1
+        ret_qtl.append(pd.Series(qtl, index=ranks.index))
+    factor_quantiles = pd.concat(ret_qtl)
+
+    stacked_rets = rets.stack()
+    stacked_factor_quantiles = factor_quantiles
+    grouped_returns = (
+        stacked_rets
+        .groupby([stacked_rets.index.get_level_values(0), stacked_factor_quantiles])
+        .mean()
+        .unstack()
+        .mean()
+        * _annulization
+        ) 
+    return grouped_returns, factor_quantiles.unstack()
+
 def _quantile35_max(y, y_pred, w):
     if is_bad_data(y_pred):
         return 0
@@ -172,6 +205,28 @@ def _quantile35_longshort_fee(y, y_pred, w):
             avg_turnover = (long_turnover + short_turnover) / 2
             ret_fee = ret - avg_turnover * _fee * _annulization
             return ret_fee
+
+def _quantile35_longshort_fee_fast(y, y_pred, w):
+    if is_bad_data(y_pred):
+        return 0
+    
+    quantiles = 35
+    res, factor_quantiles = compute_quantile_rets_fast(y, y_pred, w, quantiles)
+    if res is None or factor_quantiles is None:
+        return 0
+    else:
+        if quantiles not in res.index or 1 not in res.index:
+            return 0
+        ret = abs(res[quantiles] - res[1]) / 2 # annualized longshort (not full time span）
+        if np.isnan(ret):
+            return 0
+        else:
+            long_turnover = turnover_rate(factor_quantiles[factor_quantiles == quantiles])
+            short_turnover = turnover_rate(factor_quantiles[factor_quantiles == 1])
+            avg_turnover = (long_turnover + short_turnover) / 2
+            ret_fee = ret - avg_turnover * _fee * _annulization
+            return ret_fee
+        
     
 weighted_rank_ic = _Fitness(function=_rank_IC,greater_is_better=True)
 weighted_rank_icir = _Fitness(function=_rank_ICIR,greater_is_better=True)
@@ -179,6 +234,7 @@ weighted_quantile35_max = _Fitness(function=_quantile35_max,greater_is_better=Tr
 weighted_quantile35_mono = _Fitness(function=_quantile35_monotonicity,greater_is_better=True)
 weighted_quantile35_longshort = _Fitness(function=_quantile35_longshort,greater_is_better=True)
 weighted_quantile35_longshort_fee = _Fitness(function=_quantile35_longshort_fee,greater_is_better=True)
+weighted_quantile35_longshort_fee_fast = _Fitness(function=_quantile35_longshort_fee_fast,greater_is_better=True)
 
 _extra_fitness_map = {
     "rank_ic": weighted_rank_ic,
@@ -187,6 +243,7 @@ _extra_fitness_map = {
     "quantile35_mono": weighted_quantile35_mono,
     "quantile35_longshort": weighted_quantile35_longshort, 
     "quantile35_longshort_fee": weighted_quantile35_longshort_fee, 
+    "quantile35_longshort_fee_fast": weighted_quantile35_longshort_fee_fast, 
 }
 
 
