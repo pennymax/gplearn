@@ -15,7 +15,8 @@ def error_state_decorator(func):
 @error_state_decorator
 def scale(A, scaler=1):
     ret = pd.DataFrame(A)
-    factor = scaler * ret.div(ret.sum(axis=1), axis=0).to_numpy(dtype=np.double)
+    factor = scaler * ret.div(ret.sum(axis=1), axis=0)
+    factor = factor.replace([np.inf, -np.inf], 0).to_numpy(dtype=np.double)
     return factor
 
 @error_state_decorator

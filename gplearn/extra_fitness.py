@@ -128,6 +128,8 @@ def compute_quantile_rets_fast(y, y_pred, w, quantiles):
         qtl = np.searchsorted(bins, ranks, side='left')
         qtl[qtl==0] = 1
         ret_qtl.append(pd.Series(qtl, index=ranks.index))
+    if not ret_qtl:
+        return None, None
     factor_quantiles = pd.concat(ret_qtl)
 
     stacked_rets = rets.stack()
@@ -226,24 +228,160 @@ def _quantile35_longshort_fee_fast(y, y_pred, w):
             avg_turnover = (long_turnover + short_turnover) / 2
             ret_fee = ret - avg_turnover * _fee * _annulization
             return ret_fee
-        
+
+
+###################################
+
+def quantile_returns_and_groups(y, y_pred, quantile):
+    fwdrets = pd.DataFrame(y)
+    factor = pd.DataFrame(y_pred)
+
+    ## use y (return) to mask y_pred to set 0 on all invaid cells to nan
+    factor = factor.mask(fwdrets.isna())
     
-weighted_rank_ic = _Fitness(function=_rank_IC,greater_is_better=True)
-weighted_rank_icir = _Fitness(function=_rank_ICIR,greater_is_better=True)
-weighted_quantile35_max = _Fitness(function=_quantile35_max,greater_is_better=True)
-weighted_quantile35_mono = _Fitness(function=_quantile35_monotonicity,greater_is_better=True)
-weighted_quantile35_longshort = _Fitness(function=_quantile35_longshort,greater_is_better=True)
-weighted_quantile35_longshort_fee = _Fitness(function=_quantile35_longshort_fee,greater_is_better=True)
-weighted_quantile35_longshort_fee_fast = _Fitness(function=_quantile35_longshort_fee_fast,greater_is_better=True)
+    ret_qtl = []
+    for _, grp in factor.stack().dropna().groupby(level=0, group_keys=True):
+        ranks = grp.rank(method='first')   # method first means assign different ranks on identical values
+        bins = np.linspace(ranks.min(), ranks.max(), quantile + 1)
+        qtl = np.searchsorted(bins, ranks, side='left')
+        qtl[qtl==0] = 1
+        ret_qtl.append(pd.Series(qtl, index=ranks.index))
+    if not ret_qtl:
+        return None, None
+    ## time x group_of_symbol (symbols number)
+    stacked_factor_quantiles = pd.concat(ret_qtl)
+
+    stacked_rets = fwdrets.stack()
+    ## time x group_mean_return (group number)
+    grouped_returns = (
+        stacked_rets
+        .groupby([stacked_rets.index.get_level_values(0), stacked_factor_quantiles])
+        .mean()
+        .unstack()
+        )
+    return grouped_returns, stacked_factor_quantiles.unstack()
+
+def turnover_rates(df):
+    df = df.notna()
+    per_bar_changes = df.diff().abs().sum(axis=1) / 2
+    per_bar_count = df.sum(axis=1).fillna(1)
+    rates = per_bar_changes / per_bar_count.shift()
+    rates = rates.replace([np.inf, -np.inf], 0)
+    return rates
+
+def calc_longshort_fee(factor_quantiles, quantile, fee_rate):
+    # long
+    pfl = factor_quantiles[factor_quantiles == quantile]
+    long_rates = turnover_rates(pfl)
+    # short
+    pfl = factor_quantiles[factor_quantiles == 1]
+    short_rates = turnover_rates(pfl)
+    longshort_rates = (long_rates + short_rates) / 2
+    longshort_fee = longshort_rates * fee_rate
+    return longshort_fee
+
+def quantile_longshort_returns(y, y_pred, w, quantile, fee_rate) -> pd.Series:
+    y_pred = y_pred[w.astype(bool)]
+    y = y[w.astype(bool)]
+    if is_bad_data(y_pred):
+        return pd.Series()
+    
+    grouped_returns, factor_quantiles = quantile_returns_and_groups(y, y_pred, quantile)
+    longshort_rets = (grouped_returns[quantile] - grouped_returns[1]) / 2 ## not abs here as we need to calc camp and sub fee
+
+    if fee_rate and fee_rate > 0:
+        longshort_fee = calc_longshort_fee(factor_quantiles, quantile, fee_rate)
+        longshort_rets = longshort_rets - longshort_fee
+        # print(np.where(np.isinf(longshort_rets)))
+    
+    return longshort_rets
+
+def cagr(returns, comp, annual_bars):
+    if len(returns) < 10 or np.all(np.isnan(returns)):
+        return -1000
+    if comp:
+        total_ret = (returns + 1).prod()
+        cagr = total_ret ** (annual_bars / len(returns)) - 1
+    else:
+        cagr = returns.mean() * annual_bars
+    return cagr
+
+def total_return(returns, comp):
+    if len(returns) < 10 and np.all(np.isnan(returns)):
+        return -1000
+    if comp:
+        total_ret = returns.add(1).prod() - 1
+    else:
+        total_ret = returns.sum()
+    return total_ret
+
+def sharpe_simple(returns, annual_bars):
+    if len(returns) < 10 and np.all(np.isnan(returns)):
+        return -1000
+    sharpe = np.sqrt(annual_bars) * returns.mean() / returns.std()
+    return sharpe
+
+def sharpe_fine(returns, comp, annual_bars):
+    if len(returns) < 10 or np.all(np.isnan(returns)):
+        return -1000
+    cager_v = cagr(returns, comp, annual_bars)
+    log_ret = np.log(returns + 1)
+    log_ret = log_ret - log_ret.shift(1)
+    annul_log_ret_vol = np.sqrt(annual_bars) * log_ret.std()
+    sharpe = cager_v / annul_log_ret_vol
+    return sharpe
+        
+
+##################################
+##### Finess wrapper
+##################################
+
+annual_bar_8h = 365 * 3
+fee_rate = 0.001
+
+def fitness_quantile35_longshort_cagr_comprod_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return cagr(longshort_rets, comp=True, annual_bars=annual_bar_8h)
+
+def fitness_quantile35_longshort_cagr_cumsum_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return cagr(longshort_rets, comp=False, annual_bars=annual_bar_8h)
+
+def fitness_quantile35_longshort_cagr_comprod(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=0)
+    return cagr(longshort_rets, comp=True, annual_bars=annual_bar_8h)
+
+def fitness_quantile35_longshort_cagr_cumsum(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=0)
+    return cagr(longshort_rets, comp=False, annual_bars=annual_bar_8h)
+
+def fitness_quantile35_longshort_sharpe_fine_comprod_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return sharpe_fine(longshort_rets, comp=True, annual_bars=annual_bar_8h)
+
+def fitness_quantile35_longshort_sharpe_fine_comsum_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return sharpe_fine(longshort_rets, comp=False, annual_bars=annual_bar_8h)
+    
 
 _extra_fitness_map = {
-    "rank_ic": weighted_rank_ic,
-    "rank_icir": weighted_rank_icir,
-    "quantile35_max": weighted_quantile35_max,
-    "quantile35_mono": weighted_quantile35_mono,
-    "quantile35_longshort": weighted_quantile35_longshort, 
-    "quantile35_longshort_fee": weighted_quantile35_longshort_fee, 
-    "quantile35_longshort_fee_fast": weighted_quantile35_longshort_fee_fast, 
+    "rank_ic":                                      _Fitness(function=_rank_IC, greater_is_better=True),
+    "rank_icir":                                    _Fitness(function=_rank_ICIR, greater_is_better=True),
+    "quantile35_max":                               _Fitness(function=_quantile35_max, greater_is_better=True),
+    "quantile35_mono":                              _Fitness(function=_quantile35_monotonicity, greater_is_better=True),
+    "quantile35_longshort":                         _Fitness(function=_quantile35_longshort, greater_is_better=True), 
+    "quantile35_longshort_fee":                     _Fitness(function=_quantile35_longshort_fee, greater_is_better=True), 
+    "quantile35_longshort_fee_fast":                _Fitness(function=_quantile35_longshort_fee_fast, greater_is_better=True), 
+    
+    ## CAGR
+    'quantile35_longshort_cagr_comprod_with_fee':   _Fitness(function=fitness_quantile35_longshort_cagr_comprod_with_fee, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumsum_with_fee':    _Fitness(function=fitness_quantile35_longshort_cagr_cumsum_with_fee, greater_is_better=True), 
+    'quantile35_longshort_cagr_comprod':            _Fitness(function=fitness_quantile35_longshort_cagr_comprod, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumsum':             _Fitness(function=fitness_quantile35_longshort_cagr_cumsum, greater_is_better=True), 
+
+    ## Sharpe fine
+    'quantile35_longshort_sharpe_fine_comprod_with_fee':   _Fitness(function=fitness_quantile35_longshort_sharpe_fine_comprod_with_fee, greater_is_better=True), 
+    'quantile35_longshort_sharpe_fine_comsum_with_fee':    _Fitness(function=fitness_quantile35_longshort_sharpe_fine_comsum_with_fee, greater_is_better=True), 
 }
 
 
