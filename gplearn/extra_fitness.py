@@ -330,6 +330,17 @@ def sharpe_fine(returns, comp, annual_bars):
     annul_log_ret_vol = np.sqrt(annual_bars) * log_ret.std()
     sharpe = cager_v / annul_log_ret_vol
     return sharpe
+
+# default using simple sharpe
+def rolling_sharpe_sharpe(returns, window, annual_bars):
+    if len(returns) < 10 or np.all(np.isnan(returns)):
+        return -1000
+    rolling_sharpe = returns.rolling(window).mean() / returns.rolling(window).std() * np.sqrt(annual_bars)
+    rolling_sharpe = rolling_sharpe.dropna()
+    if len(rolling_sharpe) < 100:
+        return 0
+    rolling_sharpe_sharpe = rolling_sharpe.mean() / rolling_sharpe.std()
+    return rolling_sharpe_sharpe
         
 
 ##################################
@@ -339,7 +350,15 @@ def sharpe_fine(returns, comp, annual_bars):
 annual_bar_8h = 365 * 3
 fee_rate = 0.001
 
-def fitness_quantile35_longshort_cagr_comprod_with_fee(y, y_pred, w):
+def fitness_quantile35_longshort_total_return_cumprod_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return total_return(longshort_rets, comp=True)
+
+def fitness_quantile35_longshort_total_return_cumsum_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return total_return(longshort_rets, comp=False)
+
+def fitness_quantile35_longshort_cagr_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return cagr(longshort_rets, comp=True, annual_bars=annual_bar_8h)
 
@@ -347,7 +366,7 @@ def fitness_quantile35_longshort_cagr_cumsum_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return cagr(longshort_rets, comp=False, annual_bars=annual_bar_8h)
 
-def fitness_quantile35_longshort_cagr_comprod(y, y_pred, w):
+def fitness_quantile35_longshort_cagr_cumprod(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=0)
     return cagr(longshort_rets, comp=True, annual_bars=annual_bar_8h)
 
@@ -355,33 +374,56 @@ def fitness_quantile35_longshort_cagr_cumsum(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=0)
     return cagr(longshort_rets, comp=False, annual_bars=annual_bar_8h)
 
-def fitness_quantile35_longshort_sharpe_fine_comprod_with_fee(y, y_pred, w):
+def fitness_quantile35_longshort_sharpe_fine_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return sharpe_fine(longshort_rets, comp=True, annual_bars=annual_bar_8h)
 
-def fitness_quantile35_longshort_sharpe_fine_comsum_with_fee(y, y_pred, w):
+def fitness_quantile35_longshort_sharpe_fine_cumsum_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return sharpe_fine(longshort_rets, comp=False, annual_bars=annual_bar_8h)
+
+def fitness_quantile35_longshort_sharpe_simple_cumprod_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return sharpe_simple(longshort_rets, annual_bars=annual_bar_8h)
+
+def fitness_quantile35_longshort_rolling_sharpe_sharpe_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    # default simple sharpe and half year
+    return rolling_sharpe_sharpe(longshort_rets, window=int(annual_bar_8h/2), annual_bars=annual_bar_8h)
     
 
 _extra_fitness_map = {
     "rank_ic":                                      _Fitness(function=_rank_IC, greater_is_better=True),
     "rank_icir":                                    _Fitness(function=_rank_ICIR, greater_is_better=True),
+    
     "quantile35_max":                               _Fitness(function=_quantile35_max, greater_is_better=True),
     "quantile35_mono":                              _Fitness(function=_quantile35_monotonicity, greater_is_better=True),
+    
+    ## Old CAGR
     "quantile35_longshort":                         _Fitness(function=_quantile35_longshort, greater_is_better=True), 
     "quantile35_longshort_fee":                     _Fitness(function=_quantile35_longshort_fee, greater_is_better=True), 
     "quantile35_longshort_fee_fast":                _Fitness(function=_quantile35_longshort_fee_fast, greater_is_better=True), 
+
+    ## Total return
+    "quantile35_longshort_total_return_cumprod_with_fee": _Fitness(function=fitness_quantile35_longshort_total_return_cumprod_with_fee, greater_is_better=True), 
+    "quantile35_longshort_total_return_cumsum_with_fee": _Fitness(function=fitness_quantile35_longshort_total_return_cumsum_with_fee, greater_is_better=True), 
     
     ## CAGR
-    'quantile35_longshort_cagr_comprod_with_fee':   _Fitness(function=fitness_quantile35_longshort_cagr_comprod_with_fee, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumprod_with_fee':   _Fitness(function=fitness_quantile35_longshort_cagr_cumprod_with_fee, greater_is_better=True), 
     'quantile35_longshort_cagr_cumsum_with_fee':    _Fitness(function=fitness_quantile35_longshort_cagr_cumsum_with_fee, greater_is_better=True), 
-    'quantile35_longshort_cagr_comprod':            _Fitness(function=fitness_quantile35_longshort_cagr_comprod, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumprod':            _Fitness(function=fitness_quantile35_longshort_cagr_cumprod, greater_is_better=True), 
     'quantile35_longshort_cagr_cumsum':             _Fitness(function=fitness_quantile35_longshort_cagr_cumsum, greater_is_better=True), 
 
     ## Sharpe fine
-    'quantile35_longshort_sharpe_fine_comprod_with_fee':   _Fitness(function=fitness_quantile35_longshort_sharpe_fine_comprod_with_fee, greater_is_better=True), 
-    'quantile35_longshort_sharpe_fine_comsum_with_fee':    _Fitness(function=fitness_quantile35_longshort_sharpe_fine_comsum_with_fee, greater_is_better=True), 
+    'quantile35_longshort_sharpe_fine_cumprod_with_fee':    _Fitness(function=fitness_quantile35_longshort_sharpe_fine_cumprod_with_fee, greater_is_better=True), 
+    'quantile35_longshort_sharpe_fine_cumsum_with_fee':     _Fitness(function=fitness_quantile35_longshort_sharpe_fine_cumsum_with_fee, greater_is_better=True), 
+
+    ## Sharpe simple
+    'quantile35_longshort_sharpe_simple_cumprod_with_fee':    _Fitness(function=fitness_quantile35_longshort_sharpe_simple_cumprod_with_fee, greater_is_better=True), 
+
+    ## Rolling sharpe sharpe
+    'quantile35_longshort_rolling_sharpe_sharpe_with_fee':  _Fitness(function=fitness_quantile35_longshort_rolling_sharpe_sharpe_with_fee, greater_is_better=True), 
+    
 }
 
 
