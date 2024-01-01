@@ -231,6 +231,8 @@ def _quantile35_longshort_fee_fast(y, y_pred, w):
 
 
 ###################################
+        
+_bad_fitness_val = -1000
 
 def quantile_returns_and_groups(y, y_pred, quantile):
     fwdrets = pd.DataFrame(y)
@@ -301,7 +303,7 @@ def quantile_longshort_returns(y, y_pred, w, quantile, fee_rate) -> pd.Series:
 
 def cagr(returns, comp, annual_bars):
     if len(returns) < 10 or np.all(np.isnan(returns)):
-        return -1000
+        return _bad_fitness_val
     if comp:
         total_ret = (returns + 1).prod()
         cagr = total_ret ** (annual_bars / len(returns)) - 1
@@ -311,7 +313,7 @@ def cagr(returns, comp, annual_bars):
 
 def total_return(returns, comp):
     if returns.empty:
-        return -1000
+        return _bad_fitness_val
     if comp:
         total_ret = returns.add(1).prod() - 1
     else:
@@ -320,36 +322,55 @@ def total_return(returns, comp):
 
 def sharpe_simple(returns, annual_bars):
     if len(returns) < 10 and np.all(np.isnan(returns)):
-        return -1000
+        return _bad_fitness_val
     sharpe = np.sqrt(annual_bars) * returns.mean() / returns.std()
     if np.isnan(sharpe) or np.isinf(sharpe):
-        return -1000
+        return _bad_fitness_val
     return sharpe
 
 def sharpe_fine(returns, comp, annual_bars):
     if len(returns) < 10 or np.all(np.isnan(returns)):
-        return -1000
+        return _bad_fitness_val
     cager_v = cagr(returns, comp, annual_bars)
     log_ret = np.log(returns + 1)
     log_ret = log_ret - log_ret.shift(1)
     annul_log_ret_vol = np.sqrt(annual_bars) * log_ret.std()
     sharpe = cager_v / annul_log_ret_vol
     if np.isnan(sharpe) or np.isinf(sharpe):
-        return -1000
+        return _bad_fitness_val
     return sharpe
 
 # default using simple sharpe
 def rolling_sharpe_sharpe(returns, window, annual_bars):
     if len(returns) < 10 or np.all(np.isnan(returns)):
-        return -1000
+        return _bad_fitness_val
     rolling_sharpe = returns.rolling(window).mean() / returns.rolling(window).std() * np.sqrt(annual_bars)
     rolling_sharpe = rolling_sharpe.dropna()
     if len(rolling_sharpe) < 100:
         return 0
     rolling_sharpe_sharpe = rolling_sharpe.mean() / rolling_sharpe.std()
     if np.isnan(rolling_sharpe_sharpe) or np.isinf(rolling_sharpe_sharpe):
-        return -1000
+        return _bad_fitness_val
     return rolling_sharpe_sharpe
+
+def monotonicity(y, y_pred, w, quantile):
+    y_pred = y_pred[w.astype(bool)]
+    y = y[w.astype(bool)]
+    if is_bad_data(y_pred):
+        return _bad_fitness_val
+    
+    grouped_returns, _ = quantile_returns_and_groups(y, y_pred, quantile)
+    grouped_returns_mean = grouped_returns.mean()
+    # print(grouped_returns_mean)
+    
+    if len(grouped_returns) < 1:
+        return _bad_fitness_val
+    ranks = [sorted(grouped_returns_mean).index(x) + 1 for x in grouped_returns_mean]
+    rank_differences = [ranks[i] - ranks[i-1] for i in range(1, len(ranks))]
+    positive_differences = sum(1 for diff in rank_differences if diff > 0)
+    negative_differences = sum(1 for diff in rank_differences if diff < 0)
+    monotonicity_score = abs(positive_differences - negative_differences) / len(grouped_returns_mean) if len(grouped_returns_mean) > 0 else _bad_fitness_val
+    return monotonicity_score
 
 def turover_rate():
     ...
@@ -415,6 +436,10 @@ def fitness_quantile35_longshort_rolling_sharpe_sharpe_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     # default simple sharpe and half year
     return rolling_sharpe_sharpe(longshort_rets, window=int(annual_bar_8h/2), annual_bars=annual_bar_8h)
+
+## monotonicity
+def fitness_quantile35_monotonicity_with_fee(y, y_pred, w):
+    return monotonicity(y, y_pred, w, quantile=35)
     
 
 _extra_fitness_map = {
@@ -422,12 +447,14 @@ _extra_fitness_map = {
     "rank_icir":                                    _Fitness(function=_rank_ICIR, greater_is_better=True),
     
     "quantile35_max":                               _Fitness(function=_quantile35_max, greater_is_better=True),
-    "quantile35_mono":                              _Fitness(function=_quantile35_monotonicity, greater_is_better=True),
+    # "quantile35_mono":                              _Fitness(function=_quantile35_monotonicity, greater_is_better=True),
     
     ## Old CAGR
     "quantile35_longshort":                         _Fitness(function=_quantile35_longshort, greater_is_better=True), 
     "quantile35_longshort_fee":                     _Fitness(function=_quantile35_longshort_fee, greater_is_better=True), 
     "quantile35_longshort_fee_fast":                _Fitness(function=_quantile35_longshort_fee_fast, greater_is_better=True), 
+
+    ################################################
 
     ## Total return
     "quantile35_longshort_total_return_cumprod_with_fee": _Fitness(function=fitness_quantile35_longshort_total_return_cumprod_with_fee, greater_is_better=True), 
@@ -444,10 +471,13 @@ _extra_fitness_map = {
     'quantile35_longshort_sharpe_fine_cumsum_with_fee':     _Fitness(function=fitness_quantile35_longshort_sharpe_fine_cumsum_with_fee, greater_is_better=True), 
 
     ## Sharpe simple
-    'quantile35_longshort_sharpe_simple_cumprod_with_fee':    _Fitness(function=fitness_quantile35_longshort_sharpe_simple_cumprod_with_fee, greater_is_better=True), 
+    'quantile35_longshort_sharpe_simple_cumprod_with_fee':  _Fitness(function=fitness_quantile35_longshort_sharpe_simple_cumprod_with_fee, greater_is_better=True), 
 
     ## Rolling sharpe sharpe
     'quantile35_longshort_rolling_sharpe_sharpe_with_fee':  _Fitness(function=fitness_quantile35_longshort_rolling_sharpe_sharpe_with_fee, greater_is_better=True), 
+
+    ## Monotonicity
+    'quantile35_monotonicity':                              _Fitness(function=fitness_quantile35_monotonicity_with_fee, greater_is_better=True),
     
 }
 
