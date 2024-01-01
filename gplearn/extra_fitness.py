@@ -372,11 +372,58 @@ def monotonicity(y, y_pred, w, quantile):
     monotonicity_score = abs(positive_differences - negative_differences) / len(grouped_returns_mean) if len(grouped_returns_mean) > 0 else _bad_fitness_val
     return monotonicity_score
 
-def turover_rate():
-    ...
+def compute_IC(y, y_pred, w, rank_ic=True):
+    if is_bad_data(y_pred):
+        return 0
+    y = y[w.astype(bool)]
+    y_pred = y_pred[w.astype(bool)]
+    if rank_ic:
+        ic = pd.DataFrame(y_pred).corrwith(pd.DataFrame(y),axis = 1, method = "spearman").fillna(0)  # use fillna(0) to avoid getting high corr value if majorities are NaN
+    else:
+        ic = pd.DataFrame(y_pred).corrwith(pd.DataFrame(y),axis = 1, method = "pearson").fillna(0)
+    return ic 
 
-def ic():
-    ...
+def ic(y, y_pred, w, rank_ic):
+    if is_bad_data(y_pred):
+        return _bad_fitness_val
+    ic = compute_IC(y, y_pred, w, rank_ic).mean()
+    if np.isnan(ic):
+        return _bad_fitness_val
+    else:
+        return ic
+
+def icir(y, y_pred, w, rank_ic):
+    if is_bad_data(y_pred):
+        return _bad_fitness_val
+    ics = compute_IC(y, y_pred, w, rank_ic)
+    ic = ics.mean()
+    ic_std = ics.std()
+    icir = ic / ic_std
+    if np.isnan(icir):
+        return _bad_fitness_val
+    else:
+        return icir
+
+def quantile_avg_turover_rate(y, y_pred, w, quantile):
+    y_pred = y_pred[w.astype(bool)]
+    y = y[w.astype(bool)]
+    if is_bad_data(y_pred):
+        return _bad_fitness_val
+    
+    _, factor_quantiles = quantile_returns_and_groups(y, y_pred, quantile)
+    if factor_quantiles.empty:
+        return _bad_fitness_val
+
+    # long
+    pfl = factor_quantiles[factor_quantiles == quantile]
+    long_rates = turnover_rates(pfl)
+    # short
+    pfl = factor_quantiles[factor_quantiles == 1]
+    short_rates = turnover_rates(pfl)
+    longshort_rates = (long_rates + short_rates) / 2
+    avg_longshort_rates = longshort_rates.mean()
+    return avg_longshort_rates
+
 
 def mdd(returns):
     ...
@@ -440,21 +487,28 @@ def fitness_quantile35_longshort_rolling_sharpe_sharpe_with_fee(y, y_pred, w):
 ## monotonicity
 def fitness_quantile35_monotonicity_with_fee(y, y_pred, w):
     return monotonicity(y, y_pred, w, quantile=35)
+
+## IC & ICIR
+def fitness_rank_ic(y, y_pred, w):
+    return ic(y, y_pred, w, rank_ic=True)
+
+def fitness_rank_icir(y, y_pred, w):
+    return icir(y, y_pred, w, rank_ic=True)
+
+## turnover
+def fitness_quantile35_longshort_avg_turnover_rate(y, y_pred, w):
+    return quantile_avg_turover_rate(y, y_pred, w, quantile=35)
     
 
 _extra_fitness_map = {
-    "rank_ic":                                      _Fitness(function=_rank_IC, greater_is_better=True),
-    "rank_icir":                                    _Fitness(function=_rank_ICIR, greater_is_better=True),
-    
+
     "quantile35_max":                               _Fitness(function=_quantile35_max, greater_is_better=True),
-    # "quantile35_mono":                              _Fitness(function=_quantile35_monotonicity, greater_is_better=True),
-    
-    ## Old CAGR
-    "quantile35_longshort":                         _Fitness(function=_quantile35_longshort, greater_is_better=True), 
-    "quantile35_longshort_fee":                     _Fitness(function=_quantile35_longshort_fee, greater_is_better=True), 
-    "quantile35_longshort_fee_fast":                _Fitness(function=_quantile35_longshort_fee_fast, greater_is_better=True), 
 
     ################################################
+
+    ## IC & ICIR
+    "rank_ic":                                              _Fitness(function=fitness_rank_ic, greater_is_better=True),
+    "rank_icir":                                            _Fitness(function=fitness_rank_icir, greater_is_better=True),
 
     ## Total return
     "quantile35_longshort_total_return_cumprod_with_fee": _Fitness(function=fitness_quantile35_longshort_total_return_cumprod_with_fee, greater_is_better=True), 
@@ -478,7 +532,10 @@ _extra_fitness_map = {
 
     ## Monotonicity
     'quantile35_monotonicity':                              _Fitness(function=fitness_quantile35_monotonicity_with_fee, greater_is_better=True),
-    
+
+    ## turnover rate
+    'quantile35_longshort_avg_turnover_rate':               _Fitness(function=fitness_quantile35_longshort_avg_turnover_rate, greater_is_better=True),
+
 }
 
 
