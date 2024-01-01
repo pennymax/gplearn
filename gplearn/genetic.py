@@ -154,6 +154,8 @@ def _parallel_evolve_3D(n_programs, parents, X, y, sample_weight, seeds, params)
         oob_sample_weight = np.where(curr_sample_weight > 0, 0, 1)
 
         program.raw_fitness_ = program.raw_fitness_3D(X, y, curr_sample_weight)
+        # if program.raw_fitness_ == -1000:
+        #     print(f'  !! Bad fitness program: {program.__str__()} {program.raw_fitness_}')
         if max_samples < 1.0:
             # Calculate OOB fitness
             program.oob_fitness_ = program.raw_fitness_3D(X, y, oob_sample_weight)
@@ -390,7 +392,7 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                                      oob_fitness,
                                      remaining_time))
 
-    def fit_3D(self, X, y, baseline=None, sample_weight=None,need_parallel = True):
+    def fit_3D(self, X, y, baseline=None, sample_weight=None, need_parallel=True, bad_fitness=None):
         """Fit the Genetic Program according to X, y.
 
         Parameters
@@ -560,6 +562,9 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
         ##################遗传算法从这开始#########################################################################
         if baseline is not None:
             self._total_program = {}
+        if bad_fitness is not None:
+            self._bad_program = set()
+
         for gen in range(prior_generations, self.generations):
 
             start_time = time()
@@ -598,6 +603,10 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                     if program.raw_fitness_ > baseline:
                         # self._total_program.append(program)
                         self._total_program[program.__str__()] = program
+            if bad_fitness is not None:
+                for program in population:
+                    if program.raw_fitness_ == bad_fitness:
+                        self._bad_program.add(program.__str__())
 
             fitness = [program.raw_fitness_ for program in population]
             length = [program.length_ for program in population]

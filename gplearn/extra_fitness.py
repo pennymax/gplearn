@@ -246,10 +246,11 @@ def quantile_returns_and_groups(y, y_pred, quantile):
         qtl = np.searchsorted(bins, ranks, side='left')
         qtl[qtl==0] = 1
         ret_qtl.append(pd.Series(qtl, index=ranks.index))
-    if not ret_qtl:
-        return None, None
-    ## time x group_of_symbol (symbols number)
-    stacked_factor_quantiles = pd.concat(ret_qtl)
+    if ret_qtl:
+        ## time x group_of_symbol (symbols number)
+        stacked_factor_quantiles = pd.concat(ret_qtl)
+    else:
+        return pd.DataFrame(), pd.DataFrame()
 
     stacked_rets = fwdrets.stack()
     ## time x group_mean_return (group number)
@@ -287,6 +288,8 @@ def quantile_longshort_returns(y, y_pred, w, quantile, fee_rate) -> pd.Series:
         return pd.Series()
     
     grouped_returns, factor_quantiles = quantile_returns_and_groups(y, y_pred, quantile)
+    if grouped_returns.empty or factor_quantiles.empty or quantile not in grouped_returns.columns or 1 not in grouped_returns.columns:
+        return pd.Series()
     longshort_rets = (grouped_returns[quantile] - grouped_returns[1]) / 2 ## not abs here as we need to calc camp and sub fee
 
     if fee_rate and fee_rate > 0:
@@ -307,7 +310,7 @@ def cagr(returns, comp, annual_bars):
     return cagr
 
 def total_return(returns, comp):
-    if len(returns) < 10 and np.all(np.isnan(returns)):
+    if returns.empty:
         return -1000
     if comp:
         total_ret = returns.add(1).prod() - 1
@@ -319,6 +322,8 @@ def sharpe_simple(returns, annual_bars):
     if len(returns) < 10 and np.all(np.isnan(returns)):
         return -1000
     sharpe = np.sqrt(annual_bars) * returns.mean() / returns.std()
+    if np.isnan(sharpe) or np.isinf(sharpe):
+        return -1000
     return sharpe
 
 def sharpe_fine(returns, comp, annual_bars):
@@ -329,6 +334,8 @@ def sharpe_fine(returns, comp, annual_bars):
     log_ret = log_ret - log_ret.shift(1)
     annul_log_ret_vol = np.sqrt(annual_bars) * log_ret.std()
     sharpe = cager_v / annul_log_ret_vol
+    if np.isnan(sharpe) or np.isinf(sharpe):
+        return -1000
     return sharpe
 
 # default using simple sharpe
@@ -340,7 +347,21 @@ def rolling_sharpe_sharpe(returns, window, annual_bars):
     if len(rolling_sharpe) < 100:
         return 0
     rolling_sharpe_sharpe = rolling_sharpe.mean() / rolling_sharpe.std()
+    if np.isnan(rolling_sharpe_sharpe) or np.isinf(rolling_sharpe_sharpe):
+        return -1000
     return rolling_sharpe_sharpe
+
+def turover_rate():
+    ...
+
+def ic():
+    ...
+
+def mdd(returns):
+    ...
+
+def sortino(returns):
+    ...
         
 
 ##################################
@@ -350,6 +371,7 @@ def rolling_sharpe_sharpe(returns, window, annual_bars):
 annual_bar_8h = 365 * 3
 fee_rate = 0.001
 
+## total returns
 def fitness_quantile35_longshort_total_return_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return total_return(longshort_rets, comp=True)
@@ -358,6 +380,7 @@ def fitness_quantile35_longshort_total_return_cumsum_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return total_return(longshort_rets, comp=False)
 
+## cagr
 def fitness_quantile35_longshort_cagr_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return cagr(longshort_rets, comp=True, annual_bars=annual_bar_8h)
@@ -374,6 +397,7 @@ def fitness_quantile35_longshort_cagr_cumsum(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=0)
     return cagr(longshort_rets, comp=False, annual_bars=annual_bar_8h)
 
+## sharpe
 def fitness_quantile35_longshort_sharpe_fine_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return sharpe_fine(longshort_rets, comp=True, annual_bars=annual_bar_8h)
@@ -382,6 +406,7 @@ def fitness_quantile35_longshort_sharpe_fine_cumsum_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return sharpe_fine(longshort_rets, comp=False, annual_bars=annual_bar_8h)
 
+## rolling sharpe sharpe
 def fitness_quantile35_longshort_sharpe_simple_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return sharpe_simple(longshort_rets, annual_bars=annual_bar_8h)
