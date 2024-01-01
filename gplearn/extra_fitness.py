@@ -435,8 +435,16 @@ def quantile_longshort_dd_top_n_mean(returns, topn):
     return drawdown.nsmallest(topn).mean()
 
 
-def sortino(returns):
-    ...
+def quantile_longshort_sortino(returns, annual_bars, risk_free_rate=0):
+    if len(returns) < 10 or np.all(np.isnan(returns)):
+        return _bad_fitness_val
+    excess_return = returns - risk_free_rate
+    negative_return = returns[returns < risk_free_rate]
+    downside_std = negative_return.std()
+    if downside_std == 0:
+        return _bad_fitness_val
+    sortino_ratio = excess_return.mean() / downside_std
+    return sortino_ratio * np.sqrt(annual_bars)
         
 
 ##################################
@@ -514,11 +522,16 @@ def fitness_quantile35_longshort_cumprod_mdd_with_fee(y, y_pred, w):
 def fitness_quantile35_longshort_cumprod_top5_avg_mdd_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return quantile_longshort_dd_top_n_mean(longshort_rets, 5)
+
+## sortino
+def fitness_quantile35_longshort_sortino_cumprod_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return quantile_longshort_sortino(longshort_rets, annual_bars=annual_bar_8h)
     
 
 _extra_fitness_map = {
 
-    "quantile35_max":                               _Fitness(function=_quantile35_max, greater_is_better=True),
+    # "quantile35_max":                               _Fitness(function=_quantile35_max, greater_is_better=True),
 
     ################################################
 
@@ -554,7 +567,10 @@ _extra_fitness_map = {
 
     ## MDD
     'quantile35_longshort_cumprod_mdd_with_fee':            _Fitness(function=fitness_quantile35_longshort_cumprod_mdd_with_fee, greater_is_better=True),
-    'quantile35_longshort_cumprod_top5_avg_mdd_with_fee':   _Fitness(function=fitness_quantile35_longshort_cumprod_top5_avg_mdd_with_fee, greater_is_better=True),       
+    'quantile35_longshort_cumprod_top5_avg_mdd_with_fee':   _Fitness(function=fitness_quantile35_longshort_cumprod_top5_avg_mdd_with_fee, greater_is_better=True), 
+
+    ## Sortino
+    'quantile35_longshort_sortino_cumprod_with_fee':        _Fitness(function=fitness_quantile35_longshort_sortino_cumprod_with_fee, greater_is_better=True),
 
 }
 
