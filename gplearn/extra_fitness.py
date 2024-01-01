@@ -424,9 +424,16 @@ def quantile_avg_turover_rate(y, y_pred, w, quantile):
     avg_longshort_rates = longshort_rates.mean()
     return avg_longshort_rates
 
+def quantile_longshort_dd_top_n_mean(returns, topn):
+    if len(returns) < 10 or np.all(np.isnan(returns)):
+        return _bad_fitness_val
+    wealth_index = (1 + returns).cumprod()
+    previous_peaks = wealth_index.cummax()
+    drawdown = (wealth_index - previous_peaks) / previous_peaks
+    if len(drawdown) < 10:
+        return _bad_fitness_val
+    return drawdown.nsmallest(topn).mean()
 
-def mdd(returns):
-    ...
 
 def sortino(returns):
     ...
@@ -498,6 +505,15 @@ def fitness_rank_icir(y, y_pred, w):
 ## turnover
 def fitness_quantile35_longshort_avg_turnover_rate(y, y_pred, w):
     return quantile_avg_turover_rate(y, y_pred, w, quantile=35)
+
+## mdd
+def fitness_quantile35_longshort_cumprod_mdd_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return quantile_longshort_dd_top_n_mean(longshort_rets, 1)
+
+def fitness_quantile35_longshort_cumprod_top5_avg_mdd_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return quantile_longshort_dd_top_n_mean(longshort_rets, 5)
     
 
 _extra_fitness_map = {
@@ -511,14 +527,14 @@ _extra_fitness_map = {
     "rank_icir":                                            _Fitness(function=fitness_rank_icir, greater_is_better=True),
 
     ## Total return
-    "quantile35_longshort_total_return_cumprod_with_fee": _Fitness(function=fitness_quantile35_longshort_total_return_cumprod_with_fee, greater_is_better=True), 
-    "quantile35_longshort_total_return_cumsum_with_fee": _Fitness(function=fitness_quantile35_longshort_total_return_cumsum_with_fee, greater_is_better=True), 
+    "quantile35_longshort_total_return_cumprod_with_fee":   _Fitness(function=fitness_quantile35_longshort_total_return_cumprod_with_fee, greater_is_better=True), 
+    "quantile35_longshort_total_return_cumsum_with_fee":    _Fitness(function=fitness_quantile35_longshort_total_return_cumsum_with_fee, greater_is_better=True), 
     
     ## CAGR
-    'quantile35_longshort_cagr_cumprod_with_fee':   _Fitness(function=fitness_quantile35_longshort_cagr_cumprod_with_fee, greater_is_better=True), 
-    'quantile35_longshort_cagr_cumsum_with_fee':    _Fitness(function=fitness_quantile35_longshort_cagr_cumsum_with_fee, greater_is_better=True), 
-    'quantile35_longshort_cagr_cumprod':            _Fitness(function=fitness_quantile35_longshort_cagr_cumprod, greater_is_better=True), 
-    'quantile35_longshort_cagr_cumsum':             _Fitness(function=fitness_quantile35_longshort_cagr_cumsum, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumprod_with_fee':           _Fitness(function=fitness_quantile35_longshort_cagr_cumprod_with_fee, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumsum_with_fee':            _Fitness(function=fitness_quantile35_longshort_cagr_cumsum_with_fee, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumprod':                    _Fitness(function=fitness_quantile35_longshort_cagr_cumprod, greater_is_better=True), 
+    'quantile35_longshort_cagr_cumsum':                     _Fitness(function=fitness_quantile35_longshort_cagr_cumsum, greater_is_better=True), 
 
     ## Sharpe fine
     'quantile35_longshort_sharpe_fine_cumprod_with_fee':    _Fitness(function=fitness_quantile35_longshort_sharpe_fine_cumprod_with_fee, greater_is_better=True), 
@@ -535,6 +551,10 @@ _extra_fitness_map = {
 
     ## turnover rate
     'quantile35_longshort_avg_turnover_rate':               _Fitness(function=fitness_quantile35_longshort_avg_turnover_rate, greater_is_better=True),
+
+    ## MDD
+    'quantile35_longshort_cumprod_mdd_with_fee':            _Fitness(function=fitness_quantile35_longshort_cumprod_mdd_with_fee, greater_is_better=True),
+    'quantile35_longshort_cumprod_top5_avg_mdd_with_fee':   _Fitness(function=fitness_quantile35_longshort_cumprod_top5_avg_mdd_with_fee, greater_is_better=True),       
 
 }
 
