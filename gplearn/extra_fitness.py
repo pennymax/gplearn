@@ -309,7 +309,7 @@ def cagr(returns, comp, annual_bars):
         cagr = total_ret ** (annual_bars / len(returns)) - 1
     else:
         cagr = returns.mean() * annual_bars
-    return cagr
+    return _bad_fitness_val if np.isnan(cagr) else cagr
 
 def total_return(returns, comp):
     if returns.empty:
@@ -445,7 +445,15 @@ def quantile_longshort_sortino(returns, annual_bars, risk_free_rate=0):
         return _bad_fitness_val
     sortino_ratio = excess_return.mean() / downside_std
     return sortino_ratio * np.sqrt(annual_bars)
-        
+
+def win_rate(returns):
+    if len(returns) < 10 or np.all(np.isnan(returns)):
+        return _bad_fitness_val
+    positive_returns = returns[returns > 0].count()
+    total_trades = returns.count()
+    win_rate = positive_returns / total_trades
+    return win_rate
+
 
 ##################################
 ##### Finess wrapper
@@ -527,6 +535,11 @@ def fitness_quantile35_longshort_cumprod_top5_avg_mdd_with_fee(y, y_pred, w):
 def fitness_quantile35_longshort_sortino_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
     return quantile_longshort_sortino(longshort_rets, annual_bars=annual_bar_8h)
+
+## win rate
+def fitness_quantile35_longshort_winrate_with_fee(y, y_pred, w):
+    longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=fee_rate)
+    return win_rate(longshort_rets)
     
 
 _extra_fitness_map = {
@@ -571,6 +584,9 @@ _extra_fitness_map = {
 
     ## Sortino
     'quantile35_longshort_sortino_cumprod_with_fee':        _Fitness(function=fitness_quantile35_longshort_sortino_cumprod_with_fee, greater_is_better=True),
+
+    ## win rate
+    'quantile35_longshort_winrate_with_fee':                _Fitness(function=fitness_quantile35_longshort_winrate_with_fee, greater_is_better=True),
 
 }
 
