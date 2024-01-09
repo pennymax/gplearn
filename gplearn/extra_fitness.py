@@ -8,10 +8,22 @@ _bad_fitness_val = -1000
 _annual_bar_8h = 365 * 3
 _fee_rate = 0.001
 
-def is_bad_data(y_pred, thresh=0.3):
+def is_bad_data(y, y_pred, max_full_nan_cs_rate=0.3, min_valid_rate=0.7):
+    ## check if too many full nan cs
     total_cs = y_pred.shape[0]
     all_na_cs = np.sum(np.all(np.isnan(y_pred), axis=1))
-    return all_na_cs / total_cs >= thresh
+    too_many_invalid_full_nan_cs = all_na_cs / total_cs > max_full_nan_cs_rate
+    
+    ## check if too 
+    cs_nan_y_pred = np.sum(~np.isnan(y_pred), axis=1)
+    cs_nan_y = np.sum(~np.isnan(y), axis=1)
+    rate = cs_nan_y_pred / cs_nan_y
+    rate = np.where(np.isinf(rate), 0, rate)
+    too_low_mean_valid_rate = np.mean(rate) < min_valid_rate
+    if too_many_invalid_full_nan_cs or too_low_mean_valid_rate:
+        return True
+    else:
+        return False
 
 def quantile_returns_and_groups(y, y_pred, quantile):
     fwdrets = pd.DataFrame(y)
@@ -65,7 +77,7 @@ def calc_longshort_fee(factor_quantiles, quantile, fee_rate):
 def quantile_longshort_returns(y, y_pred, w, quantile, fee_rate) -> pd.Series:
     y_pred = y_pred[w.astype(bool)]
     y = y[w.astype(bool)]
-    if is_bad_data(y_pred):
+    if is_bad_data(y, y_pred):
         return pd.Series()
     
     grouped_returns, factor_quantiles = quantile_returns_and_groups(y, y_pred, quantile)
@@ -135,7 +147,7 @@ def rolling_sharpe_sharpe(returns, window, annual_bars):
 def monotonicity(y, y_pred, w, quantile):
     y_pred = y_pred[w.astype(bool)]
     y = y[w.astype(bool)]
-    if is_bad_data(y_pred):
+    if is_bad_data(y, y_pred):
         return _bad_fitness_val
     
     grouped_returns, _ = quantile_returns_and_groups(y, y_pred, quantile)
@@ -152,7 +164,7 @@ def monotonicity(y, y_pred, w, quantile):
     return monotonicity_score
 
 def compute_IC(y, y_pred, w, rank_ic=True):
-    if is_bad_data(y_pred):
+    if is_bad_data(y, y_pred):
         return 0
     y = y[w.astype(bool)]
     y_pred = y_pred[w.astype(bool)]
@@ -163,7 +175,7 @@ def compute_IC(y, y_pred, w, rank_ic=True):
     return ic 
 
 def ic(y, y_pred, w, rank_ic):
-    if is_bad_data(y_pred):
+    if is_bad_data(y, y_pred):
         return _bad_fitness_val
     ic = compute_IC(y, y_pred, w, rank_ic).mean()
     if np.isnan(ic):
@@ -172,7 +184,7 @@ def ic(y, y_pred, w, rank_ic):
         return ic
 
 def icir(y, y_pred, w, rank_ic):
-    if is_bad_data(y_pred):
+    if is_bad_data(y, y_pred):
         return _bad_fitness_val
     ics = compute_IC(y, y_pred, w, rank_ic)
     ic = ics.mean()
@@ -186,7 +198,7 @@ def icir(y, y_pred, w, rank_ic):
 def quantile_avg_turover_rate(y, y_pred, w, quantile):
     y_pred = y_pred[w.astype(bool)]
     y = y[w.astype(bool)]
-    if is_bad_data(y_pred):
+    if is_bad_data(y, y_pred):
         return _bad_fitness_val
     
     _, factor_quantiles = quantile_returns_and_groups(y, y_pred, quantile)

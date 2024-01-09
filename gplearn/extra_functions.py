@@ -229,6 +229,36 @@ def rolling_entropy(A, window=5):
     factor = ret.apply(lambda x: ta.entropy(x, length=window)).to_numpy(dtype=np.double)
     return factor
 
+@error_state_decorator
+def rolling_quantile_25(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.quantile(x, length=window, q=0.25)).to_numpy(dtype=np.double)
+    return factor
+
+@error_state_decorator
+def rolling_quantile_75(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.quantile(x, length=window, q=0.75)).to_numpy(dtype=np.double)
+    return factor
+
+@error_state_decorator
+def rolling_lingreg_slope(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.linreg(x, length=window, slope=True)).to_numpy(dtype=np.double)
+    return factor
+
+@error_state_decorator
+def rolling_lingreg_intercept(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.linreg(x, length=window, intercept=True)).to_numpy(dtype=np.double)
+    return factor
+
+@error_state_decorator
+def rolling_lingreg_corr(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.linreg(x, length=window, r=True)).to_numpy(dtype=np.double)
+    return factor
+
 
 ## Build extra function map
 
@@ -285,12 +315,6 @@ _extra_function_map.update({f'delta_pct_{w}': _Function(function=wrap_non_pickla
 _extra_function_map.update({f'ts_delta1pct_mean_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_delta1_pct_mean(x, w)), name=f'ts_delta1pct_mean_{w}', arity=1) for w in rolling_windows if w > 1})
 # ts sum
 _extra_function_map.update({f'ts_sum_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_sum(x, w)), name=f'ts_sum_{w}', arity=1) for w in rolling_windows if w > 1})
-# ts regression beta (x over y)
-_extra_function_map.update({f'ts_regr_beta_{w}': _Function(function=wrap_non_picklable_objects(lambda x, y, w=w: rolling_regression_beta(x, y, w)), name=f'ts_regr_beta_{w}', arity=2) for w in rolling_windows if w >=3})
-# ts regression beta (x over fixed index [1, window+1])
-_extra_function_map.update({f'ts_lin_beta_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_linear_slope(x, w)), name=f'ts_lin_beta_{w}', arity=1) for w in rolling_windows if w >=3})
-# ts regression intercept (x over fixed index [1, window+1])
-_extra_function_map.update({f'ts_lin_intercept_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_linear_intercept(x, w)), name=f'ts_lin_intercept_{w}', arity=1) for w in rolling_windows if w >=3})
 # ts ema
 _extra_function_map.update({f'ts_ema_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_ema(x, w)), name=f'ts_ema_{w}', arity=1) for w in rolling_windows if w >=5})
 # ts dema
@@ -299,6 +323,28 @@ _extra_function_map.update({f'ts_dema_{w}': _Function(function=wrap_non_picklabl
 _extra_function_map.update({f'ts_wma_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_wma(x, w)), name=f'ts_wma_{w}', arity=1) for w in rolling_windows if w >=5})
 # ts kama
 _extra_function_map.update({f'ts_kama_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_kama(x, w)), name=f'ts_kama_{w}', arity=1) for w in rolling_windows if w >=5})
-# ts entropy
-_extra_function_map.update({f'ts_entropy_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_entropy(x, w)), name=f'ts_entropy_{w}', arity=1) for w in rolling_windows if w >=10})
+# ts quantile 0.25 (bottom, <25% part)
+_extra_function_map.update({f'ts_quantile25_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_quantile_25(x, w)), name=f'ts_quantile25_{w}', arity=1) for w in rolling_windows if w >=5})
+# ts quantile 0.25 (top, >75% part)
+_extra_function_map.update({f'ts_quantile75_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_quantile_75(x, w)), name=f'ts_quantile75_{w}', arity=1) for w in rolling_windows if w >=5})
+# ts linreg slope (x over index [1, window+1])
+_extra_function_map.update({f'ts_linreg_slope_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_lingreg_slope(x, w)), name=f'ts_linreg_slope_{w}', arity=1) for w in rolling_windows if w >=10})
+# ts linreg intercept (x over index [1, window+1])
+_extra_function_map.update({f'ts_linreg_intercept_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_lingreg_intercept(x, w)), name=f'ts_linreg_intercept_{w}', arity=1) for w in rolling_windows if w >=10})
+# ts linreg correlation (x over index [1, window+1])
+_extra_function_map.update({f'ts_linreg_corr_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_lingreg_corr(x, w)), name=f'ts_linreg_corr_{w}', arity=1) for w in rolling_windows if w >=10})
+
+
+############
+## disabled
+############
+
+# ts entropy (need to have all ts data positive, disable now)
+# _extra_function_map.update({f'ts_entropy_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_entropy(x, w)), name=f'ts_entropy_{w}', arity=1) for w in rolling_windows if w >=10})
+# ts regression beta (x over y)
+# _extra_function_map.update({f'ts_regr_beta_{w}': _Function(function=wrap_non_picklable_objects(lambda x, y, w=w: rolling_regression_beta(x, y, w)), name=f'ts_regr_beta_{w}', arity=2) for w in rolling_windows if w >=3})
+# ts regression beta (x over fixed index [1, window+1])
+# _extra_function_map.update({f'ts_lin_beta_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_linear_slope(x, w)), name=f'ts_lin_beta_{w}', arity=1) for w in rolling_windows if w >=3})
+# ts regression intercept (x over fixed index [1, window+1])
+# _extra_function_map.update({f'ts_lin_intercept_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_linear_intercept(x, w)), name=f'ts_lin_intercept_{w}', arity=1) for w in rolling_windows if w >=3})
 
