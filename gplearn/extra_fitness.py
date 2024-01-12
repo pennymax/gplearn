@@ -59,7 +59,7 @@ def turnover_rates(df):
     df = df.notna()
     per_bar_changes = df.diff().abs().sum(axis=1) / 2
     per_bar_count = df.sum(axis=1).fillna(1)
-    rates = per_bar_changes / per_bar_count.shift()
+    rates = per_bar_changes / per_bar_count.shift().replace(0, np.nan)
     rates = rates.replace([np.inf, -np.inf], 0)
     return rates
 
