@@ -259,6 +259,30 @@ def rolling_lingreg_corr(A, window=5):
     factor = ret.apply(lambda x: ta.linreg(x, length=window, r=True)).to_numpy(dtype=np.double)
     return factor
 
+@error_state_decorator
+def rolling_decay(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.decay(x, length=window, mode='exp')).to_numpy(dtype=np.double)
+    return factor
+
+@error_state_decorator
+def rolling_decreasing(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.decreasing(x, length=window, asint=True)).to_numpy(dtype=np.double)
+    return factor
+
+@error_state_decorator
+def rolling_increasing(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.increasing(x, length=window, asint=True)).to_numpy(dtype=np.double)
+    return factor
+
+@error_state_decorator
+def rolling_vhf(A, window=5):
+    ret = pd.DataFrame(A)
+    factor = ret.apply(lambda x: ta.vhf(x, length=window)).to_numpy(dtype=np.double)
+    return factor
+
 
 ## Build extra function map
 
@@ -333,6 +357,14 @@ _extra_function_map.update({f'ts_linreg_slope_{w}': _Function(function=wrap_non_
 _extra_function_map.update({f'ts_linreg_intercept_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_lingreg_intercept(x, w)), name=f'ts_linreg_intercept_{w}', arity=1) for w in rolling_windows if w >=10})
 # ts linreg correlation (x over index [1, window+1])
 _extra_function_map.update({f'ts_linreg_corr_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_lingreg_corr(x, w)), name=f'ts_linreg_corr_{w}', arity=1) for w in rolling_windows if w >=10})
+# ts decay
+_extra_function_map.update({f'ts_decay_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_decay(x, w)), name=f'ts_decay_{w}', arity=1) for w in rolling_windows if w >=5})
+# ts decreasing
+_extra_function_map.update({f'ts_decreasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_decreasing(x, w)), name=f'ts_decreasing_{w}', arity=1) for w in rolling_windows if w >=3})
+# ts increasing
+_extra_function_map.update({f'ts_increasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_increasing(x, w)), name=f'ts_increasing_{w}', arity=1) for w in rolling_windows if w >=3})
+# ts vhf
+_extra_function_map.update({f'ts_vhf_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: rolling_vhf(x, w)), name=f'ts_vhf_{w}', arity=1) for w in rolling_windows if w >=5})
 
 
 ############
