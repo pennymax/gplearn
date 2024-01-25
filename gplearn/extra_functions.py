@@ -6,6 +6,7 @@ import pandas as pd
 from .functions import _Function, _protected_division
 from joblib import wrap_non_picklable_objects
 import pandas_ta as ta
+import talib
 
 def error_state_decorator(func):
     def wrapper(A, *args, **kwargs):
@@ -177,27 +178,27 @@ def rolling_inverse_cv(A, window=5):
     cv = _protected_division(mean, std)
     return cv
 
-@error_state_decorator
-def rolling_regression_beta(A, B, window=5):
-    """beta of regression x1 onto x2 in the last d datetimes"""
-    cov = rolling_corr(A, B, window)
-    std = rolling_nanstd(B, window)
-    factor = _protected_division(cov, std ** 2)
-    return factor
+# @error_state_decorator
+# def rolling_regression_beta(A, B, window=5):
+#     """beta of regression x1 onto x2 in the last d datetimes"""
+#     cov = rolling_corr(A, B, window)
+#     std = rolling_nanstd(B, window)
+#     factor = _protected_division(cov, std ** 2)
+#     return factor
 
-@error_state_decorator
-def rolling_linear_slope(A, window=5):
-    """beta of regression x1 in the last d datetimes onto (1, 2, ..., d)"""
-    num_rows, num_cols = A.shape
-    B = np.tile(np.arange(1, num_rows + 1).reshape(-1, 1), num_cols)
-    factor = _protected_division(rolling_corr(A, B, window), rolling_nanstd(B, window) ** 2)
-    return factor
+# @error_state_decorator
+# def rolling_linear_slope(A, window=5):
+#     """beta of regression x1 in the last d datetimes onto (1, 2, ..., d)"""
+#     num_rows, num_cols = A.shape
+#     B = np.tile(np.arange(1, num_rows + 1).reshape(-1, 1), num_cols)
+#     factor = _protected_division(rolling_corr(A, B, window), rolling_nanstd(B, window) ** 2)
+#     return factor
 
-@error_state_decorator
-def rolling_linear_intercept(A, window=5):
-    """intercept of regression x1 in the last d datetimes onto (1, 2, ..., d)"""
-    factor = rolling_nanmean(A, window) - (1 + window) / 2 * rolling_linear_slope(A, window)
-    return factor
+# @error_state_decorator
+# def rolling_linear_intercept(A, window=5):
+#     """intercept of regression x1 in the last d datetimes onto (1, 2, ..., d)"""
+#     factor = rolling_nanmean(A, window) - (1 + window) / 2 * rolling_linear_slope(A, window)
+#     return factor
 
 @error_state_decorator
 def rolling_ema(A, window=5):
@@ -205,11 +206,18 @@ def rolling_ema(A, window=5):
     factor = ret.apply(lambda x: ta.ema(x, length=window)).to_numpy(dtype=np.double)
     return factor
 
+# @error_state_decorator
+# def rolling_dema(A, window=5):
+#     ret = pd.DataFrame(A)
+#     factor = ret.apply(lambda x: ta.dema(x, length=window)).to_numpy(dtype=np.double)
+#     return factor
+
 @error_state_decorator
 def rolling_dema(A, window=5):
-    ret = pd.DataFrame(A)
-    factor = ret.apply(lambda x: ta.dema(x, length=window)).to_numpy(dtype=np.double)
-    return factor
+    dema_results = np.empty_like(A)
+    for i in range(A.shape[1]):
+        dema_results[:, i] = talib.DEMA(A[:, i], timeperiod=window)
+    return dema_results
 
 @error_state_decorator
 def rolling_wma(A, window=5):

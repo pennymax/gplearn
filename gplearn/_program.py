@@ -17,6 +17,7 @@ from .utils import check_random_state
 import warnings
 from copy import  deepcopy
 warnings.filterwarnings("ignore")
+import time
 
 class _Program(object):
     """A program-like representation of the evolved program.
@@ -569,10 +570,17 @@ class _Program(object):
             The raw fitness of the program.
 
         """
+        t0 = time.perf_counter()
         y_pred = self.execute_3D(X)
+        cost_execute = time.perf_counter() - t0
+        t1 = time.perf_counter()
+        
         if self.transformer:
             y_pred = self.transformer(y_pred)
         raw_fitness = self.metric(y, y_pred, sample_weight)
+        
+        cost_metric = time.perf_counter() - t1
+        print(f'  [time cost] total: {time.perf_counter()-t0:.4f} execute_3d: {cost_execute:.4f} metric: {cost_metric:.4f}')
 
         return raw_fitness
 

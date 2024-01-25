@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 from .fitness import _Fitness
+import time
 
 
 _bad_fitness_val = -1000
@@ -75,6 +76,8 @@ def calc_longshort_fee(factor_quantiles, quantile, fee_rate):
     return longshort_fee
 
 def quantile_longshort_returns(y, y_pred, w, quantile, fee_rate) -> pd.Series:
+    if y.shape[0] != y_pred.shape[0]:
+        return pd.Series()
     y_pred = y_pred[w.astype(bool)]
     y = y[w.astype(bool)]
     if is_bad_data(y, y_pred):
@@ -112,7 +115,7 @@ def total_return(returns, comp):
     return total_ret
 
 def sharpe_simple(returns, annual_bars):
-    if len(returns) < 10 and np.all(np.isnan(returns)):
+    if len(returns) < 10 or np.all(np.isnan(returns)):
         return _bad_fitness_val
     sharpe = np.sqrt(annual_bars) * returns.mean() / returns.std()
     if np.isnan(sharpe) or np.isinf(sharpe):
@@ -285,11 +288,12 @@ def fitness_quantile35_longshort_sharpe_fine_cumsum_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=_fee_rate)
     return sharpe_fine(longshort_rets, comp=False, annual_bars=_annual_bar_8h)
 
-## rolling sharpe sharpe
+## simple sharpe
 def fitness_quantile35_longshort_sharpe_simple_cumprod_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=_fee_rate)
     return sharpe_simple(longshort_rets, annual_bars=_annual_bar_8h)
 
+## rolling sharpe sharpe
 def fitness_quantile35_longshort_rolling_sharpe_sharpe_with_fee(y, y_pred, w):
     longshort_rets = quantile_longshort_returns(y, y_pred, w, quantile=35, fee_rate=_fee_rate)
     # default simple sharpe and half year

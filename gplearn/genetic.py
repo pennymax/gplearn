@@ -153,9 +153,10 @@ def _parallel_evolve_3D(n_programs, parents, X, y, sample_weight, seeds, params)
             curr_sample_weight = sample_weight.copy()
         oob_sample_weight = np.where(curr_sample_weight > 0, 0, 1)
 
+        print(f'  processing program {program.__str__()}')
         program.raw_fitness_ = program.raw_fitness_3D(X, y, curr_sample_weight)
-        # if program.raw_fitness_ == -1000:
-        #     print(f'  !! Bad fitness program: {program.__str__()} {program.raw_fitness_}')
+        if program.raw_fitness_ == -1000:
+            print(f'  !! Bad fitness program: {program.__str__()} {program.raw_fitness_}')
         if max_samples < 1.0:
             # Calculate OOB fitness
             program.oob_fitness_ = program.raw_fitness_3D(X, y, oob_sample_weight)
@@ -607,7 +608,6 @@ class BaseSymbolic(BaseEstimator, metaclass=ABCMeta):
                 for program in population:
                     if program.raw_fitness_ == bad_fitness:
                         self._bad_program.add(program.__str__())
-
             fitness = [program.raw_fitness_ for program in population]
             length = [program.length_ for program in population]
 
