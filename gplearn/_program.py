@@ -133,7 +133,8 @@ class _Program(object):
                  random_state,
                  transformer=None,
                  feature_names=None,
-                 program=None):
+                 program=None,
+                 verbose=0):
 
         self.function_set = function_set
         self.arities = arities
@@ -147,6 +148,7 @@ class _Program(object):
         self.transformer = transformer
         self.feature_names = feature_names
         self.program = program
+        self.verbose = verbose
 
         if self.program is not None:
             if not self.validate_program():
@@ -580,7 +582,8 @@ class _Program(object):
         raw_fitness = self.metric(y, y_pred, sample_weight)
         
         cost_metric = time.perf_counter() - t1
-        print(f'  [time cost] total: {time.perf_counter()-t0:.4f} execute_3d: {cost_execute:.4f} metric: {cost_metric:.4f}')
+        if self.verbose > 1:
+            print(f'  [time cost] total: {time.perf_counter()-t0:.4f} execute_3d: {cost_execute:.4f} metric: {cost_metric:.4f} metric_val: {raw_fitness:.4f}')
 
         return raw_fitness
 

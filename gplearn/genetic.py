@@ -33,7 +33,7 @@ from .fitness import _fitness_map, _Fitness
 from .functions import _function_map, _Function, sig1 as sigmoid
 from .utils import _partition_estimators
 from .utils import check_random_state
-from .extra_functions import _extra_function_map
+from .extra_functions_2 import _extra_function_map
 from .extra_fitness import _extra_fitness_map
 
 
@@ -67,6 +67,7 @@ def _parallel_evolve_3D(n_programs, parents, X, y, sample_weight, seeds, params)
     p_point_replace = params['p_point_replace']
     max_samples = params['max_samples']
     feature_names = params['feature_names']
+    verbose = params['verbose']
     
     # max_samples = int(max_samples * n_dates)
 
@@ -142,7 +143,8 @@ def _parallel_evolve_3D(n_programs, parents, X, y, sample_weight, seeds, params)
                            parsimony_coefficient=parsimony_coefficient,
                            feature_names=feature_names,
                            random_state=random_state,
-                           program=program)
+                           program=program,
+                           verbose=verbose)
 
         program.parents = genome
 
@@ -153,10 +155,9 @@ def _parallel_evolve_3D(n_programs, parents, X, y, sample_weight, seeds, params)
             curr_sample_weight = sample_weight.copy()
         oob_sample_weight = np.where(curr_sample_weight > 0, 0, 1)
 
-        print(f'  processing program {program.__str__()}')
+        if verbose > 1: print(f'  processing program {program.__str__()}')
         program.raw_fitness_ = program.raw_fitness_3D(X, y, curr_sample_weight)
-        if program.raw_fitness_ == -1000:
-            print(f'  !! Bad fitness program: {program.__str__()} {program.raw_fitness_}')
+        if verbose > 1: print()
         if max_samples < 1.0:
             # Calculate OOB fitness
             program.oob_fitness_ = program.raw_fitness_3D(X, y, oob_sample_weight)
