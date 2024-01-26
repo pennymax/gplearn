@@ -72,8 +72,15 @@ def np_rolling_apply(x, w, func):
 @error_handle_and_nan_mask
 def ts_zscore(x, w=60):
     df = pd.DataFrame(x)
-    r = df.rolling(window=w)
-    return ((df - r.mean()) / r.std()).to_numpy(np.double)
+    rolling = df.rolling(window=w)
+    mean = rolling.mean()
+    std = rolling.std()
+
+    # 避免除以零：如果 std 是 0，设置结果为 NaN
+    zscore = (df - mean) / std
+    zscore[std == 0] = np.nan
+
+    return zscore.to_numpy(np.double)
 _extra_function_map.update({f'tszs_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_zscore(x, w)), name=f'tszs_{w}', arity=1) for w in tszs_wins})
 
 @error_handle_and_nan_mask
@@ -165,6 +172,25 @@ _extra_function_map.update({f'ts_argmax_{w}': _Function(function=wrap_non_pickla
 def cs_rank(x):
     return pd.DataFrame(x).rank(axis=1, pct=True).to_numpy(dtype=np.double)
 _extra_function_map.update({'cs_rank': _Function(function=wrap_non_picklable_objects(lambda x: cs_rank(x)), name = 'cs_rank', arity=1)})
+
+@error_handle_and_nan_mask
+def cs_zscore(x):
+    # 检查每行是否全部为 NaN
+    all_nan_rows = np.isnan(x).all(axis=1)
+
+    # 为非全 NaN 的行计算均值和标准差
+    means = np.nanmean(x[~all_nan_rows], axis=1, keepdims=True)
+    stds = np.nanstd(x[~all_nan_rows], axis=1, keepdims=True)
+
+    # 初始化一个全为 NaN 的结果数组
+    z_scores = np.full(x.shape, np.nan)
+
+    # 只对非全 NaN 的行进行 Z-score 计算
+    z_scores[~all_nan_rows] = (x[~all_nan_rows] - means) / stds
+
+    return z_scores
+_extra_function_map.update({'cs_zscore': _Function(function=wrap_non_picklable_objects(lambda x: cs_zscore(x)), name = 'cs_zscore', arity=1)})
+
 
 # endregion
 
