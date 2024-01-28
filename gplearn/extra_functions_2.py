@@ -37,12 +37,6 @@ def error_handle_and_nan_mask(func):
         return result
     return wrapper
 
-# def error_state_decorator(func):
-#     def wrapper(A, *args, **kwargs):
-#         with np.errstate(over='ignore', under='ignore'):
-#             return func(A, *args, **kwargs)
-#     return wrapper
-
 def apply_column(x, func, *args, **kwargs):
     r = np.empty_like(x)
     for i in range(x.shape[1]):
@@ -137,6 +131,11 @@ def ts_min(x, w=5):
 _extra_function_map.update({f'ts_min_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_min(x, w)), name=f'ts_min_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
+def ts_rank(x, w=3):
+    return pd.DataFrame(x).rolling(w).rank(pct=True).to_numpy(dtype=np.double)
+_extra_function_map.update({f'ts_rank_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_rank(x, w)), name=f'ts_rank_{w}', arity=1) for w in ts_wins if w >= 3})
+
+@error_handle_and_nan_mask
 def ts_autocorr(x, w=5, l=1):
     """moving autocorrelation coefficient between x and x lag i period"""
     ret = pd.DataFrame(x)
@@ -169,6 +168,7 @@ def safe_nanargmax(x, axis):
 def ts_argmax(x, w=3):
     return np_rolling_apply(x, w, safe_nanargmax)
 _extra_function_map.update({f'ts_argmax_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_argmax(x, w)), name=f'ts_argmax_{w}', arity=1) for w in ts_wins if w >=3})
+
 #endregion
 
 
@@ -347,11 +347,98 @@ _extra_function_map.update({f'ta_WMA_{w}': _Function(function=wrap_non_picklable
 # region ==== TA functions: Volume ====
 
 @error_handle_and_nan_mask
-def tszs_ta_OBV(x1, x2, w):
-    print('------- tszs_ta_OBV')
+def tszs_ta_OBV(x1, x2, w):     ## use OBV as an arity 2 func
     return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
 _extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
 
+# endregion
+
+# region ==== TA functions: Cycle ====
+
+@error_handle_and_nan_mask
+def ta_HTDCPERIOD(x):   # Hilbert Transform
+    return apply_column(x, talib.HT_DCPERIOD)
+_extra_function_map.update({f'ta_HTDCPERIOD': _Function(function=wrap_non_picklable_objects(ta_HTDCPERIOD), name=f'ta_HTDCPERIOD', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_HTDCPHASE(x):   # Hilbert Transform
+    return apply_column(x, talib.HT_DCPHASE)
+_extra_function_map.update({f'ta_HTDCPHASE': _Function(function=wrap_non_picklable_objects(ta_HTDCPHASE), name=f'ta_HTDCPHASE', arity=1)})
+
+def _ta_HTPHASOR(x, mode):
+    inphase, quadrature = talib.HT_PHASOR(x)
+    if mode == 'i':
+        return inphase
+    elif mode == 'q':
+        return quadrature
+@error_handle_and_nan_mask
+def ta_HTPHASOR_INPHASE(x):   # Hilbert Transform
+    return apply_column(x, _ta_HTPHASOR, mode='i')
+_extra_function_map.update({f'ta_HTPHASOR_INPHASE': _Function(function=wrap_non_picklable_objects(ta_HTPHASOR_INPHASE), name=f'ta_HTPHASOR_INPHASE', arity=1)})
+def ta_HTPHASOR_QUADRATURE(x):   # Hilbert Transform
+    return apply_column(x, _ta_HTPHASOR, mode='q')
+_extra_function_map.update({f'ta_HTPHASOR_QUADRATURE': _Function(function=wrap_non_picklable_objects(ta_HTPHASOR_QUADRATURE), name=f'ta_HTPHASOR_QUADRATURE', arity=1)})
+
+def _ta_HTSINE(x, mode):
+    sine, leadsine = talib.HT_SINE(x)
+    if mode == 's':
+        return sine
+    elif mode == 'l':
+        return leadsine
+@error_handle_and_nan_mask
+def ta_HTSINE_SINE(x):   # Hilbert Transform
+    return apply_column(x, _ta_HTSINE, mode='s')
+_extra_function_map.update({f'ta_HTSINE_SINE': _Function(function=wrap_non_picklable_objects(ta_HTSINE_SINE), name=f'ta_HTSINE_SINE', arity=1)})
+@error_handle_and_nan_mask
+def ta_HTSINE_LEADSINE(x):   # Hilbert Transform
+    return apply_column(x, _ta_HTSINE, mode='l')
+_extra_function_map.update({f'ta_HTSINE_LEADSINE': _Function(function=wrap_non_picklable_objects(ta_HTSINE_LEADSINE), name=f'ta_HTSINE_LEADSINE', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_HTTRENDMODE(x):   # Hilbert Transform
+    return apply_column(x, talib.HT_TRENDMODE)
+_extra_function_map.update({f'ta_HTTRENDMODE': _Function(function=wrap_non_picklable_objects(ta_HTTRENDMODE), name=f'ta_HTTRENDMODE', arity=1)})
+
+# endregion
+
+# region ==== TA functions: Statistic ====
+
+@error_handle_and_nan_mask
+def ta_BETA(x1, x2, w):
+    return apply_column_2(x1, x2, talib.BETA, timeperiod=w)
+_extra_function_map.update({f'ta_BETA_{w}': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: ta_BETA(x1, x2, w)), name=f'ta_BETA_{w}', arity=2) for w in ts_wins if w >=5})
+
+@error_handle_and_nan_mask
+def ta_CORREL(x1, x2, w):   ## Pearson's Correlation Coefficient (r)
+    return apply_column_2(x1, x2, talib.CORREL, timeperiod=w)
+_extra_function_map.update({f'ta_CORREL_{w}': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: ta_CORREL(x1, x2, w)), name=f'ta_CORREL_{w}', arity=2) for w in ts_wins if w >=10})
+
+@error_handle_and_nan_mask
+def ta_LINEARREG(x, w=10):  ## Linear Regression
+    return apply_column(x, talib.LINEARREG, timeperiod=w)
+_extra_function_map.update({'ta_LINEARREG_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG(x, w)), name = 'ta_LINEARREG_{w}', arity=1) for w in ts_wins if w >=10})
+
+@error_handle_and_nan_mask
+def ta_LINEARREG_ANGLE(x, w=10):  ## Linear Regression Angle
+    return apply_column(x, talib.LINEARREG_ANGLE, timeperiod=w)
+_extra_function_map.update({'ta_LINEARREG_ANGLE_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_ANGLE(x, w)), name = 'ta_LINEARREG_ANGLE_{w}', arity=1) for w in ts_wins if w >=10})
+
+@error_handle_and_nan_mask
+def ta_LINEARREG_INTERCEPT(x, w=10):  ## Linear Regression Intercept
+    return apply_column(x, talib.LINEARREG_INTERCEPT, timeperiod=w)
+_extra_function_map.update({'ta_LINEARREG_INTERCEPT_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_INTERCEPT(x, w)), name = 'ta_LINEARREG_INTERCEPT_{w}', arity=1) for w in ts_wins if w >=10})
+
+@error_handle_and_nan_mask
+def ta_LINEARREG_SLOPE(x, w=10):  ## Linear Regression Slope
+    return apply_column(x, talib.LINEARREG_SLOPE, timeperiod=w)
+_extra_function_map.update({'ta_LINEARREG_SLOPE_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_SLOPE(x, w)), name = 'ta_LINEARREG_SLOPE_{w}', arity=1) for w in ts_wins if w >=10})
+
+@error_handle_and_nan_mask
+def ta_TSF(x, w=10):  ## Time Series Forecast
+    return apply_column(x, talib.TSF, timeperiod=w)
+_extra_function_map.update({'ta_TSF_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_TSF(x, w)), name = 'ta_TSF_{w}', arity=1) for w in ts_wins if w >=10})
+
+# endregion
 
 # endregion TA
 
