@@ -121,6 +121,16 @@ def ts_std(x, w=5):
 _extra_function_map.update({f'ts_std_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_std(x, w)), name=f'ts_std_{w}', arity=1) for w in ts_wins if w >= 5})
 
 @error_handle_and_nan_mask
+def ts_skew(x, w=5):
+    return pd.DataFrame(x).rolling(w).skew().to_numpy(dtype=np.double)
+_extra_function_map.update({f'ts_skew_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_skew(x, w)), name=f'ts_skew_{w}', arity=1) for w in ts_wins if w >= 5})
+
+@error_handle_and_nan_mask
+def ts_kurt(x, w=5):
+    return pd.DataFrame(x).rolling(w).kurt().to_numpy(dtype=np.double)
+_extra_function_map.update({f'ts_kurt_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_kurt(x, w)), name=f'ts_kurt_{w}', arity=1) for w in ts_wins if w >= 5})
+
+@error_handle_and_nan_mask
 def ts_max(x, w=5):
     return pd.DataFrame(x).rolling(w).max().to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_max_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_max(x, w)), name=f'ts_max_{w}', arity=1) for w in ts_wins if w > 1})
@@ -440,6 +450,70 @@ _extra_function_map.update({'ta_TSF_{w}': _Function(function=wrap_non_picklable_
 
 # endregion
 
+# region ==== TA functions: Math Transform ====
+
+@error_handle_and_nan_mask
+def ta_ACOS(x):  
+    return apply_column(x, talib.ACOS)
+_extra_function_map.update({f'ta_ACOS': _Function(function=wrap_non_picklable_objects(ta_ACOS), name=f'ta_ACOS', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_ASIN(x):  
+    return apply_column(x, talib.ASIN)
+_extra_function_map.update({f'ta_ASIN': _Function(function=wrap_non_picklable_objects(ta_ASIN), name=f'ta_ASIN', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_ATAN(x):  
+    return apply_column(x, talib.ATAN)
+_extra_function_map.update({f'ta_ATAN': _Function(function=wrap_non_picklable_objects(ta_ATAN), name=f'ta_ATAN', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_CEIL(x):  
+    return apply_column(x, talib.CEIL)
+_extra_function_map.update({f'ta_CEIL': _Function(function=wrap_non_picklable_objects(ta_CEIL), name=f'ta_CEIL', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_COS(x):  
+    return apply_column(x, talib.COS)
+_extra_function_map.update({f'ta_COS': _Function(function=wrap_non_picklable_objects(ta_COS), name=f'ta_COS', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_COSH(x):  
+    return apply_column(x, talib.COSH)
+_extra_function_map.update({f'ta_COSH': _Function(function=wrap_non_picklable_objects(ta_COSH), name=f'ta_COSH', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_FLOOR(x):  
+    return apply_column(x, talib.FLOOR)
+_extra_function_map.update({f'ta_FLOOR': _Function(function=wrap_non_picklable_objects(ta_FLOOR), name=f'ta_FLOOR', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_LN(x):  
+    return apply_column(x, talib.LN)
+_extra_function_map.update({f'ta_LN': _Function(function=wrap_non_picklable_objects(ta_LN), name=f'ta_LN', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_SIN(x):  
+    return apply_column(x, talib.SIN)
+_extra_function_map.update({f'ta_SIN': _Function(function=wrap_non_picklable_objects(ta_SIN), name=f'ta_SIN', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_SINH(x):  
+    return apply_column(x, talib.SINH)
+_extra_function_map.update({f'ta_SINH': _Function(function=wrap_non_picklable_objects(ta_SINH), name=f'ta_SINH', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_TAN(x):  
+    return apply_column(x, talib.TAN)
+_extra_function_map.update({f'ta_TAN': _Function(function=wrap_non_picklable_objects(ta_TAN), name=f'ta_TAN', arity=1)})
+
+@error_handle_and_nan_mask
+def ta_TANH(x):  
+    return apply_column(x, talib.TANH)
+_extra_function_map.update({f'ta_TANH': _Function(function=wrap_non_picklable_objects(ta_TANH), name=f'ta_TANH', arity=1)})
+
+# endregion
+
 # endregion TA
 
 
@@ -522,6 +596,11 @@ _extra_function_map.update({f'abs': _Function(function=wrap_non_picklable_object
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 _extra_function_map.update({f'sigmoid': _Function(function=wrap_non_picklable_objects(sigmoid), name=f'sigmoid', arity=1)})
+
+@error_handle_and_nan_mask
+def pow2(x):
+    return np.power(x, 2)
+_extra_function_map.update({f'pow2': _Function(function=wrap_non_picklable_objects(pow2), name=f'pow2', arity=1)})
 
 # endregion
 
