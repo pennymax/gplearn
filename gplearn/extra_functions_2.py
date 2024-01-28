@@ -49,6 +49,12 @@ def apply_column(x, func, *args, **kwargs):
         r[:, i] = func(x[:, i], *args, **kwargs)
     return r
 
+def apply_column_2(x1, x2, func, *args, **kwargs):
+    r = np.empty_like(x1)
+    for i in range(x1.shape[1]):
+        r[:, i] = func(x1[:, i], x2[:, i], *args, **kwargs)
+    return r
+
 ## quite faster than rolling.apply() but slower than rolling.pd_support_func()
 def np_rolling_apply(x, w, func):
     if w > x.shape[0]:
@@ -338,6 +344,15 @@ _extra_function_map.update({f'ta_WMA_{w}': _Function(function=wrap_non_picklable
 
 # endregion
 
+# region ==== TA functions: Volume ====
+
+@error_handle_and_nan_mask
+def tszs_ta_OBV(x1, x2, w):
+    print('------- tszs_ta_OBV')
+    return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
+_extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
+
+
 # endregion TA
 
 
@@ -346,36 +361,36 @@ _extra_function_map.update({f'ta_WMA_{w}': _Function(function=wrap_non_picklable
 # region ==== Basic: arity > 1, need take ts zscore ====
 
 @error_handle_and_nan_mask
-def tszs_add(x1, x2, w=60):
+def tszs_add(x1, x2, w):
     return np.add(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
-_extra_function_map.update({f'tszs_{w}_add': _Function(function=wrap_non_picklable_objects(lambda x, w=w: tszs_add(x, w)), name=f'tszs_{w}_add', arity=2) for w in tszs_wins})
+_extra_function_map.update({f'tszs_{w}_add': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_add(x1, x2, w)), name=f'tszs_{w}_add', arity=2) for w in tszs_wins})
 
 @error_handle_and_nan_mask
-def tszs_sub(x1, x2, w=60):
+def tszs_sub(x1, x2, w):
     return np.subtract(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
-_extra_function_map.update({f'tszs_{w}_sub': _Function(function=wrap_non_picklable_objects(lambda x, w=w: tszs_sub(x, w)), name=f'tszs_{w}_sub', arity=2) for w in tszs_wins})
+_extra_function_map.update({f'tszs_{w}_sub': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_sub(x1, x2, w)), name=f'tszs_{w}_sub', arity=2) for w in tszs_wins})
 
 @error_handle_and_nan_mask
-def tszs_mul(x1, x2, w=60):
+def tszs_mul(x1, x2, w):
     return np.multiply(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
-_extra_function_map.update({f'tszs_{w}_mul': _Function(function=wrap_non_picklable_objects(lambda x, w=w: tszs_mul(x, w)), name=f'tszs_{w}_mul', arity=2) for w in tszs_wins})
+_extra_function_map.update({f'tszs_{w}_mul': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_mul(x1, x2, w)), name=f'tszs_{w}_mul', arity=2) for w in tszs_wins})
 
 @error_handle_and_nan_mask
-def tszs_div(x1, x2, w=60):
+def tszs_div(x1, x2, w):
     tszs_x1 = ts_zscore(x1, w=w)
     tszs_x2 = ts_zscore(x2, w=w)
     return np.where(np.abs(tszs_x2) > 0.001, np.divide(tszs_x1, tszs_x2), 1.)
-_extra_function_map.update({f'tszs_{w}_div': _Function(function=wrap_non_picklable_objects(lambda x, w=w: tszs_div(x, w)), name=f'tszs_{w}_div', arity=2) for w in tszs_wins})
+_extra_function_map.update({f'tszs_{w}_div': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_div(x1, x2, w)), name=f'tszs_{w}_div', arity=2) for w in tszs_wins})
 
 @error_handle_and_nan_mask
-def tszs_max(x1, x2, w=60):
+def tszs_max(x1, x2, w):
     return np.maximum(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
-_extra_function_map.update({f'tszs_{w}_max': _Function(function=wrap_non_picklable_objects(lambda x, w=w: tszs_max(x, w)), name=f'tszs_{w}_max', arity=2) for w in tszs_wins})
+_extra_function_map.update({f'tszs_{w}_max': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_max(x1, x2, w)), name=f'tszs_{w}_max', arity=2) for w in tszs_wins})
 
 @error_handle_and_nan_mask
-def tszs_min(x1, x2, w=60):
+def tszs_min(x1, x2, w):
     return np.minimum(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
-_extra_function_map.update({f'tszs_{w}_min': _Function(function=wrap_non_picklable_objects(lambda x, w=w: tszs_min(x, w)), name=f'tszs_{w}_min', arity=2) for w in tszs_wins})
+_extra_function_map.update({f'tszs_{w}_min': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_min(x1, x2, w)), name=f'tszs_{w}_min', arity=2) for w in tszs_wins})
 
 # endregion
 
