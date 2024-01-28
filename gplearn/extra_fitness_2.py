@@ -160,18 +160,26 @@ def sharpe_fine(returns, comp, annual_bars):
         return _bad_fitness_val
     return sharpe
 
-# default using simple sharpe
-def rolling_sharpe_sharpe(returns, window, annual_bars):
+def rolling_sharpe(returns, window, annual_bars):
     if len(returns) < 10 or np.all(np.isnan(returns)):
         return _bad_fitness_val
     rolling_sharpe = returns.rolling(window).mean() / returns.rolling(window).std() * np.sqrt(annual_bars)
     rolling_sharpe = rolling_sharpe.dropna()
     if len(rolling_sharpe) < 100:
-        return 0
-    rolling_sharpe_sharpe = rolling_sharpe.mean() / rolling_sharpe.std()
-    if np.isnan(rolling_sharpe_sharpe) or np.isinf(rolling_sharpe_sharpe):
+        return pd.Series()
+    else:
+        return rolling_sharpe
+
+# default using simple sharpe
+def rolling_sharpe_sharpe(returns, window, annual_bars):
+    sharpes = rolling_sharpe(returns, window, annual_bars)
+    if sharpes.empty:
         return _bad_fitness_val
-    return rolling_sharpe_sharpe
+    else:
+        sharpe_sharpe = sharpes.mean() / sharpes.std()
+        if np.isnan(sharpe_sharpe) or np.isinf(sharpe_sharpe):
+            return _bad_fitness_val
+        return sharpe_sharpe
 
 def monotonicity(y, y_pred, w, quantile):
     y_pred = y_pred[w.astype(bool)]
