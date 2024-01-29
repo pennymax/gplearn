@@ -357,6 +357,16 @@ _extra_function_map.update({f'ta_WMA_{w}': _Function(function=wrap_non_picklable
 # region ==== TA functions: Volume ====
 
 @error_handle_and_nan_mask
+def ta_OBV(x1, x2):     ## use OBV as an arity 2 func
+    return apply_column_2(x1, x2, talib.OBV)
+_extra_function_map.update({f'ta_OBV': _Function(function=wrap_non_picklable_objects(ta_OBV), name=f'ta_OBV', arity=2)})
+
+@error_handle_and_nan_mask
+def cszs_ta_OBV(x1, x2):     ## use OBV as an arity 2 func
+    return apply_column_2(cs_zscore(x1), cs_zscore(x2), talib.OBV)
+_extra_function_map.update({f'cszs_ta_OBV': _Function(function=wrap_non_picklable_objects(cszs_ta_OBV), name=f'cszs_ta_OBV', arity=2)})
+
+@error_handle_and_nan_mask
 def tszs_ta_OBV(x1, x2, w):     ## use OBV as an arity 2 func
     return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
 _extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
@@ -519,22 +529,66 @@ _extra_function_map.update({f'ta_TANH': _Function(function=wrap_non_picklable_ob
 
 # region ==== Basic ====
 
-# region ==== Basic: arity > 1, need take ts zscore ====
+# region ==== Basic: arity > 1, w/ & w/o ts zscore ====
+
+@error_handle_and_nan_mask
+def add(x1, x2):
+    return np.add(x1, x2)
+_extra_function_map.update({f'add': _Function(function=wrap_non_picklable_objects(add), name=f'add', arity=2)})
+
+@error_handle_and_nan_mask
+def cszs_add(x1, x2):
+    return np.add(cs_zscore(x1), cs_zscore(x2))
+_extra_function_map.update({f'cszs_add': _Function(function=wrap_non_picklable_objects(cszs_add), name=f'cszs_add', arity=2)})
 
 @error_handle_and_nan_mask
 def tszs_add(x1, x2, w):
     return np.add(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
 _extra_function_map.update({f'tszs_{w}_add': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_add(x1, x2, w)), name=f'tszs_{w}_add', arity=2) for w in tszs_wins})
 
+
+@error_handle_and_nan_mask
+def sub(x1, x2):
+    return np.subtract(x1, x2)
+_extra_function_map.update({f'sub': _Function(function=wrap_non_picklable_objects(sub), name=f'sub', arity=2)})
+
+@error_handle_and_nan_mask
+def cszs_sub(x1, x2):
+    return np.subtract(cs_zscore(x1), cs_zscore(x2))
+_extra_function_map.update({f'cszs_sub': _Function(function=wrap_non_picklable_objects(cszs_sub), name=f'cszs_sub', arity=2)})
+
 @error_handle_and_nan_mask
 def tszs_sub(x1, x2, w):
     return np.subtract(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
 _extra_function_map.update({f'tszs_{w}_sub': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_sub(x1, x2, w)), name=f'tszs_{w}_sub', arity=2) for w in tszs_wins})
 
+
+@error_handle_and_nan_mask
+def mul(x1, x2):
+    return np.multiply(x1, x2)
+_extra_function_map.update({f'mul': _Function(function=wrap_non_picklable_objects(mul), name=f'mul', arity=2)})
+
+@error_handle_and_nan_mask
+def cszs_mul(x1, x2):
+    return np.multiply(cs_zscore(x1), cs_zscore(x2))
+_extra_function_map.update({f'cszs_mul': _Function(function=wrap_non_picklable_objects(cszs_mul), name=f'cszs_mul', arity=2)})
+
 @error_handle_and_nan_mask
 def tszs_mul(x1, x2, w):
     return np.multiply(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
 _extra_function_map.update({f'tszs_{w}_mul': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_mul(x1, x2, w)), name=f'tszs_{w}_mul', arity=2) for w in tszs_wins})
+
+
+@error_handle_and_nan_mask
+def div(x1, x2):
+    return np.where(x2 > 0.001, np.divide(x1, x2), 1.)
+_extra_function_map.update({f'div': _Function(function=wrap_non_picklable_objects(div), name=f'div', arity=2)})
+
+@error_handle_and_nan_mask
+def cszs_div(x1, x2):
+    cszs_x2 = cs_zscore(x2)
+    return np.where(cszs_x2 > 0.001, np.divide(cs_zscore(x1), cszs_x2), 1.)
+_extra_function_map.update({f'cszs_div': _Function(function=wrap_non_picklable_objects(cszs_div), name=f'cszs_div', arity=2)})
 
 @error_handle_and_nan_mask
 def tszs_div(x1, x2, w):
@@ -543,10 +597,32 @@ def tszs_div(x1, x2, w):
     return np.where(np.abs(tszs_x2) > 0.001, np.divide(tszs_x1, tszs_x2), 1.)
 _extra_function_map.update({f'tszs_{w}_div': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_div(x1, x2, w)), name=f'tszs_{w}_div', arity=2) for w in tszs_wins})
 
+
+@error_handle_and_nan_mask
+def max(x1, x2):
+    return np.maximum(x1, x2)
+_extra_function_map.update({f'max': _Function(function=wrap_non_picklable_objects(max), name=f'max', arity=2)})
+
+@error_handle_and_nan_mask
+def cszs_max(x1, x2):
+    return np.maximum(cs_zscore(x1), cs_zscore(x2))
+_extra_function_map.update({f'cszs_max': _Function(function=wrap_non_picklable_objects(cszs_max), name=f'cszs_max', arity=2)})
+
 @error_handle_and_nan_mask
 def tszs_max(x1, x2, w):
     return np.maximum(ts_zscore(x1, w=w), ts_zscore(x2, w=w))
 _extra_function_map.update({f'tszs_{w}_max': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_max(x1, x2, w)), name=f'tszs_{w}_max', arity=2) for w in tszs_wins})
+
+
+@error_handle_and_nan_mask
+def min(x1, x2):
+    return np.minimum(x1, x2)
+_extra_function_map.update({f'min': _Function(function=wrap_non_picklable_objects(min), name=f'min', arity=2)})
+
+@error_handle_and_nan_mask
+def cszs_min(x1, x2):
+    return np.minimum(cs_zscore(x1), cs_zscore(x2))
+_extra_function_map.update({f'cszs_min': _Function(function=wrap_non_picklable_objects(cszs_min), name=f'cszs_min', arity=2)})
 
 @error_handle_and_nan_mask
 def tszs_min(x1, x2, w):
