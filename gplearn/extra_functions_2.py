@@ -258,6 +258,22 @@ def ta_RSI(x, timeperiod):
     return apply_column(x, talib.RSI, timeperiod)
 _extra_function_map.update({f'ta_RSI_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_RSI(x, w)), name=f'ta_RSI_{w}', arity=1) for w in [10]})
 
+
+def _stochrsi(x, timeperiod, fastk_period, fastd_period, fastd_matype, type):
+    fastk, fastd = talib.STOCHRSI(x, timeperiod=timeperiod, fastk_period=fastk_period, fastd_period=fastd_period, fastd_matype=fastd_matype)
+    if type == 'k':
+        return fastk
+    elif type == 'd':
+        return fastd
+@error_handle_and_nan_mask
+def ta_STOCHRSIk(x, timeperiod):
+    return apply_column(x, _stochrsi, timeperiod=timeperiod, fastk_period=5, fastd_period=3, fastd_matype=0, type='k')
+@error_handle_and_nan_mask
+def ta_STOCHRSId(x, timeperiod):
+    return apply_column(x, _stochrsi, timeperiod=timeperiod, fastk_period=5, fastd_period=3, fastd_matype=0, type='d')
+_extra_function_map.update({f'ta_STOCHRSIk_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_STOCHRSIk(x, w)), name=f'ta_STOCHRSIk_{w}', arity=1) for w in [10]})
+_extra_function_map.update({f'ta_STOCHRSId_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_STOCHRSId(x, w)), name=f'ta_STOCHRSId_{w}', arity=1) for w in [10]})
+
 @error_handle_and_nan_mask
 def ta_TRIX(x, timeperiod):
     return apply_column(x, talib.TRIX, timeperiod)
@@ -683,3 +699,26 @@ _extra_function_map.update({f'pow2': _Function(function=wrap_non_picklable_objec
 # endregion Basic
 
 
+# region ==== Multi-conditions ====
+
+@error_handle_and_nan_mask
+def clear_by_cond(x1, x2, x3):
+    """if x1 < x2 (keep NaN if and only if both x1 and x2 are NaN), then 0, else x3"""
+    return np.where(x1 < x2, 0, np.where(~np.isnan(x1) | ~np.isnan(x2), x3, np.nan))
+_extra_function_map.update({'clear_by_cond': _Function(function=wrap_non_picklable_objects(clear_by_cond), name="clear_by_cond", arity=3)})
+
+error_handle_and_nan_mask
+def if_then_else(x1, x2, x3):
+    """if x1 is nonzero (keep NaN), then x2, else x3"""
+    return np.where(x1, x2, np.where(~np.isnan(x1), x3, np.nan))
+_extra_function_map.update({'if_then_else': _Function(function=wrap_non_picklable_objects(if_then_else), name="if_then_else", arity=3)})
+
+@error_handle_and_nan_mask
+def if_cond_then_else(x1, x2, x3, x4):
+    """if x1 < x2 (keep NaN if and only if both x1 and x2 are NaN), then x3, else x4"""
+    return np.where(x1 < x2, x3, np.where(~np.isnan(x1) | ~np.isnan(x2), x4, np.nan))
+_extra_function_map.update({'if_cond_then_else': _Function(function=wrap_non_picklable_objects(if_cond_then_else), name="if_cond_then_else", arity=3)})
+
+# endregion
+
+# TODO: pure pandas-ta funcs, quantile, inverse cv...
