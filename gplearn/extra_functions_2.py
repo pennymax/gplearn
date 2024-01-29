@@ -218,7 +218,7 @@ _extra_function_map.update({'cs_zscore': _Function(function=wrap_non_picklable_o
 @error_handle_and_nan_mask
 def ta_APO(x, fastperiod, slowperiod, matype):
     return apply_column(x, talib.APO, fastperiod, slowperiod, matype)
-_extra_function_map.update({'ta_APO_12_26': _Function(function=wrap_non_picklable_objects(lambda x: ta_APO(x, 12, 26, 0)), name = 'ta_APO_12_26', arity=1)})
+_extra_function_map.update({f'ta_APO_12_26': _Function(function=wrap_non_picklable_objects(lambda x: ta_APO(x, 12, 26, 0)), name = 'ta_APO_12_26', arity=1)})
 
 @error_handle_and_nan_mask
 def ta_CMO(x, timeperiod):
@@ -251,7 +251,7 @@ _extra_function_map.update({
 @error_handle_and_nan_mask
 def ta_PPO(x, fastperiod, slowperiod, matype):
     return apply_column(x, talib.PPO, fastperiod, slowperiod, matype)
-_extra_function_map.update({'ta_PPO_12_26': _Function(function=wrap_non_picklable_objects(lambda x: ta_PPO(x, 12, 26, 0)), name = 'ta_PPO_12_26', arity=1)})
+_extra_function_map.update({f'ta_PPO_12_26': _Function(function=wrap_non_picklable_objects(lambda x: ta_PPO(x, 12, 26, 0)), name = 'ta_PPO_12_26', arity=1)})
 
 @error_handle_and_nan_mask
 def ta_RSI(x, timeperiod):
@@ -426,27 +426,27 @@ _extra_function_map.update({f'ta_CORREL_{w}': _Function(function=wrap_non_pickla
 @error_handle_and_nan_mask
 def ta_LINEARREG(x, w=10):  ## Linear Regression
     return apply_column(x, talib.LINEARREG, timeperiod=w)
-_extra_function_map.update({'ta_LINEARREG_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG(x, w)), name = 'ta_LINEARREG_{w}', arity=1) for w in ts_wins if w >=10})
+_extra_function_map.update({f'ta_LINEARREG_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG(x, w)), name = 'ta_LINEARREG_{w}', arity=1) for w in ts_wins if w >=10})
 
 @error_handle_and_nan_mask
 def ta_LINEARREG_ANGLE(x, w=10):  ## Linear Regression Angle
     return apply_column(x, talib.LINEARREG_ANGLE, timeperiod=w)
-_extra_function_map.update({'ta_LINEARREG_ANGLE_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_ANGLE(x, w)), name = 'ta_LINEARREG_ANGLE_{w}', arity=1) for w in ts_wins if w >=10})
+_extra_function_map.update({f'ta_LINEARREG_ANGLE_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_ANGLE(x, w)), name = 'ta_LINEARREG_ANGLE_{w}', arity=1) for w in ts_wins if w >=10})
 
 @error_handle_and_nan_mask
 def ta_LINEARREG_INTERCEPT(x, w=10):  ## Linear Regression Intercept
     return apply_column(x, talib.LINEARREG_INTERCEPT, timeperiod=w)
-_extra_function_map.update({'ta_LINEARREG_INTERCEPT_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_INTERCEPT(x, w)), name = 'ta_LINEARREG_INTERCEPT_{w}', arity=1) for w in ts_wins if w >=10})
+_extra_function_map.update({f'ta_LINEARREG_INTERCEPT_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_INTERCEPT(x, w)), name = 'ta_LINEARREG_INTERCEPT_{w}', arity=1) for w in ts_wins if w >=10})
 
 @error_handle_and_nan_mask
 def ta_LINEARREG_SLOPE(x, w=10):  ## Linear Regression Slope
     return apply_column(x, talib.LINEARREG_SLOPE, timeperiod=w)
-_extra_function_map.update({'ta_LINEARREG_SLOPE_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_SLOPE(x, w)), name = 'ta_LINEARREG_SLOPE_{w}', arity=1) for w in ts_wins if w >=10})
+_extra_function_map.update({f'ta_LINEARREG_SLOPE_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_LINEARREG_SLOPE(x, w)), name = 'ta_LINEARREG_SLOPE_{w}', arity=1) for w in ts_wins if w >=10})
 
 @error_handle_and_nan_mask
 def ta_TSF(x, w=10):  ## Time Series Forecast
     return apply_column(x, talib.TSF, timeperiod=w)
-_extra_function_map.update({'ta_TSF_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_TSF(x, w)), name = 'ta_TSF_{w}', arity=1) for w in ts_wins if w >=10})
+_extra_function_map.update({f'ta_TSF_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_TSF(x, w)), name = 'ta_TSF_{w}', arity=1) for w in ts_wins if w >=10})
 
 # endregion
 
