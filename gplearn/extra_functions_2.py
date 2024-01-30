@@ -179,6 +179,12 @@ def ts_argmax(x, w=3):
     return np_rolling_apply(x, w, safe_nanargmax)
 _extra_function_map.update({f'ts_argmax_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_argmax(x, w)), name=f'ts_argmax_{w}', arity=1) for w in ts_wins if w >=3})
 
+@error_handle_and_nan_mask
+def ts_quantile(x, w=5, q=0.25):
+    return pd.DataFrame(x).rolling(w).quantile(q).to_numpy(dtype=np.double)
+_extra_function_map.update({f'ts_quantile_{w}_0.25': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_quantile(x, w, 0.25)), name=f'ts_quantile_{w}_0.25', arity=1) for w in ts_wins if w >=5})
+_extra_function_map.update({f'ts_quantile_{w}_0.75': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_quantile(x, w, 0.75)), name=f'ts_quantile_{w}_0.75', arity=1) for w in ts_wins if w >=5})
+
 #endregion
 
 
@@ -717,8 +723,8 @@ _extra_function_map.update({'if_then_else': _Function(function=wrap_non_picklabl
 def if_cond_then_else(x1, x2, x3, x4):
     """if x1 < x2 (keep NaN if and only if both x1 and x2 are NaN), then x3, else x4"""
     return np.where(x1 < x2, x3, np.where(~np.isnan(x1) | ~np.isnan(x2), x4, np.nan))
-_extra_function_map.update({'if_cond_then_else': _Function(function=wrap_non_picklable_objects(if_cond_then_else), name="if_cond_then_else", arity=3)})
+_extra_function_map.update({'if_cond_then_else': _Function(function=wrap_non_picklable_objects(if_cond_then_else), name="if_cond_then_else", arity=4)})
 
 # endregion
 
-# TODO: pure pandas-ta funcs, quantile, inverse cv...
+# TODO: pure pandas-ta funcs, inverse cv...
