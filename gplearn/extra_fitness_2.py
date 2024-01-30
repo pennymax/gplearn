@@ -119,7 +119,7 @@ def quantile_longshort_returns(y, y_pred, w, quantile, fee_rate) -> pd.Series:
         longshort_rets = longshort_rets - longshort_fee
         # print(np.where(np.isinf(longshort_rets)))
     
-    return pd.Series(longshort_rets).dropna() ## back compatibility TODO
+    return pd.Series(longshort_rets).fillna(0) ## treat nan as zero returns; keep original shape meantime
 
 def cagr(returns, comp, annual_bars):
     if len(returns) < 10 or np.all(np.isnan(returns)):
