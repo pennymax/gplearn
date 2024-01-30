@@ -185,6 +185,16 @@ def ts_quantile(x, w=5, q=0.25):
 _extra_function_map.update({f'ts_quantile_{w}_0.25': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_quantile(x, w, 0.25)), name=f'ts_quantile_{w}_0.25', arity=1) for w in ts_wins if w >=5})
 _extra_function_map.update({f'ts_quantile_{w}_0.75': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_quantile(x, w, 0.75)), name=f'ts_quantile_{w}_0.75', arity=1) for w in ts_wins if w >=5})
 
+@error_handle_and_nan_mask
+def ts_decreasing(x, w=5):
+    return pd.DataFrame(x).apply(lambda col: ta.decreasing(col, length=w, asint=True)).to_numpy(dtype=np.double)
+_extra_function_map.update({f'ts_decreasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_decreasing(x, w)), name=f'ts_decreasing_{w}', arity=1) for w in ts_wins if w >=3})
+
+@error_handle_and_nan_mask
+def ts_increasing(x, w=5):
+    return pd.DataFrame(x).apply(lambda col: ta.increasing(col, length=w, asint=True)).to_numpy(dtype=np.double)
+_extra_function_map.update({f'ts_increasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_increasing(x, w)), name=f'ts_increasing_{w}', arity=1) for w in ts_wins if w >=3})
+
 #endregion
 
 
@@ -393,6 +403,16 @@ def tszs_ta_OBV(x1, x2, w):     ## use OBV as an arity 2 func
     return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
 _extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
 
+
+def _vwma(x1, x2, w):
+    pv = x1 * x2
+    vwma = talib.MA(pv, timeperiod=w, matype=0) / talib.MA(x2, timeperiod=w, matype=0)
+    return vwma
+@error_handle_and_nan_mask
+def ta_VWMA(x1, x2, w=5):     ## use VWMA as an arity 2 func
+    return apply_column_2(x1, x2, _vwma, w=w)
+_extra_function_map.update({f'ta_VWMA_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_VWMA(x, w)), name=f'ta_VWMA_{w}', arity=2) for w in ts_wins if w >=5})
+
 # endregion
 
 # region ==== TA functions: Cycle ====
@@ -441,6 +461,15 @@ def ta_HTTRENDMODE(x):   # Hilbert Transform
     return apply_column(x, talib.HT_TRENDMODE)
 _extra_function_map.update({f'ta_HTTRENDMODE': _Function(function=wrap_non_picklable_objects(ta_HTTRENDMODE), name=f'ta_HTTRENDMODE', arity=1)})
 
+from pandas_ta.cycles.reflex import np_reflex
+@error_handle_and_nan_mask
+def ta_REFLEX(x, w=10):
+    ret = apply_column(x, np_reflex, n=w, k=w, alpha=0.04, pi=3.14159, sqrt2=1.414)
+    ret[:w, :] = np.nan
+    return ret
+_extra_function_map.update({f'ta_REFLEX_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_REFLEX(x, w)), name=f'ta_REFLEX_{w}', arity=1) for w in ts_wins if w >=10})
+       
+
 # endregion
 
 # region ==== TA functions: Statistic ====
@@ -479,6 +508,18 @@ _extra_function_map.update({f'ta_LINEARREG_SLOPE_{w}': _Function(function=wrap_n
 def ta_TSF(x, w=10):  ## Time Series Forecast
     return apply_column(x, talib.TSF, timeperiod=w)
 _extra_function_map.update({f'ta_TSF_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_TSF(x, w)), name=f'ta_TSF_{w}', arity=1) for w in ts_wins if w >=10})
+
+def _mad(x, axis):
+    return np.mean(
+        np.fabs(
+            x - np.mean(x, axis=axis).reshape(-1, 1)
+            ), 
+        axis=1)
+@error_handle_and_nan_mask
+def ta_MAD(x, w=5):
+    return np_rolling_apply(x, w, _mad)
+_extra_function_map.update({f'ta_MAD_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_MAD(x, w)), name=f'ta_MAD_{w}', arity=1) for w in ts_wins if w >=5})
+
 
 # endregion
 
