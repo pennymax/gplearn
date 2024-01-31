@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 from joblib import cpu_count
 
-from _program import _Program
+from gplearn._program import _Program
 from extra_functions_2 import *
 
 
