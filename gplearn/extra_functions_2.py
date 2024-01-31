@@ -97,7 +97,7 @@ _extra_function_map.update({f'ts_diff_{w}': _Function(function=wrap_non_picklabl
 def ts_roc(x, w=1): # rate of change
     ret = pd.DataFrame(x)
     shifted_ret = ret.shift(w)
-    return np.where(shifted_ret == 0, np.nan, ret.diff(w) / shifted_ret.abs() - 1)
+    return np.where(shifted_ret == 0, np.nan, ret.diff(w) / shifted_ret.abs() - 1)  # do not use pct_change as it can not handle negative values as expect
 _extra_function_map.update({f'ts_roc_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_roc(x, w)), name=f'ts_roc_{w}', arity=1) for w in ts_wins})
 
 @error_handle_and_nan_mask
