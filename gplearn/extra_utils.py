@@ -1,10 +1,22 @@
 import re
 import pandas as pd
+import time
 
 from gplearn._program import _Program
 from gplearn.extra_functions_2 import *
 from gplearn.utils import *
 
+from contextlib import contextmanager
+
+@contextmanager
+def timer(label, if_print=True):
+    start = time.perf_counter()
+    try:
+        yield
+    finally:
+        end = time.perf_counter()
+        if if_print:
+            print(f"== {label}: {end - start:.4f} seconds ==")
 
 
 def convert_expression_to_gp_program(expression: str, function_set: dict, feature_names: list) -> _Program:
