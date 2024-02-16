@@ -197,7 +197,8 @@ _extra_function_map.update({f'ts_increasing_{w}': _Function(function=wrap_non_pi
 
 @error_handle_and_nan_mask
 def ts_relative(x, w=5):
-    sma = np.where(np.isnan(ta_SMA(x, w)), 1, sma)
+    sma = ta_SMA(x, timeperiod=w)
+    sma = np.where(np.isnan(sma), 1, sma)
     return np.divide(x, sma, out=np.zeros_like(x), where=sma!=0)
 _extra_function_map.update({f'ts_relative_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_relative(x, w)), name=f'ts_relative_{w}', arity=1) for w in ts_wins if w >=3})
 
