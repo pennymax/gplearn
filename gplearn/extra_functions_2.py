@@ -195,6 +195,12 @@ def ts_increasing(x, w=5):
     return pd.DataFrame(x).apply(lambda col: ta.increasing(col, length=w, asint=True)).to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_increasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_increasing(x, w)), name=f'ts_increasing_{w}', arity=1) for w in ts_wins if w >=3})
 
+@error_handle_and_nan_mask
+def ts_relative(x, w=5):
+    sma = np.where(np.isnan(ta_SMA(x, w)), 1, sma)
+    return np.divide(x, sma, out=np.zeros_like(x), where=sma!=0)
+_extra_function_map.update({f'ts_relative_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_relative(x, w)), name=f'ts_relative_{w}', arity=1) for w in ts_wins if w >=3})
+
 #endregion
 
 
@@ -765,6 +771,21 @@ def if_cond_then_else(x1, x2, x3, x4):
     """if x1 < x2 (keep NaN if and only if both x1 and x2 are NaN), then x3, else x4"""
     return np.where(x1 < x2, x3, np.where(~np.isnan(x1) | ~np.isnan(x2), x4, np.nan))
 _extra_function_map.update({'if_cond_then_else': _Function(function=wrap_non_picklable_objects(if_cond_then_else), name="if_cond_then_else", arity=4)})
+
+@error_handle_and_nan_mask
+def if_above0_then_else(x1, x2, x3):
+    return np.where(np.isnan(x1), x3, np.where(x1 > 0, x2, x3))
+_extra_function_map.update({'if_above0_then_else': _Function(function=wrap_non_picklable_objects(if_above0_then_else), name="if_above0_then_else", arity=3)})
+
+@error_handle_and_nan_mask
+def if_nan_then_else(x1, x2):
+    return np.where(np.isnan(x1), x2, x1)
+_extra_function_map.update({'if_nan_then_else': _Function(function=wrap_non_picklable_objects(if_nan_then_else), name="if_nan_then_else", arity=2)})
+
+@error_handle_and_nan_mask
+def if_larger_then_else(x1, x2):
+    return np.where(x1 > x2, x1, x2)
+_extra_function_map.update({'if_larger_then_else': _Function(function=wrap_non_picklable_objects(if_larger_then_else), name="if_larger_then_else", arity=2)})
 
 # endregion
 

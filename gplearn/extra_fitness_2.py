@@ -162,7 +162,7 @@ def sharpe_fine(returns, comp, annual_bars):
 
 def rolling_sharpe(returns, window, annual_bars):
     if len(returns) < 10 or np.all(np.isnan(returns)):
-        return _bad_fitness_val
+        return pd.Series()
     rolling_sharpe = returns.rolling(window).mean() / returns.rolling(window).std() * np.sqrt(annual_bars)
     rolling_sharpe = rolling_sharpe.dropna()
     if len(rolling_sharpe) < 100:
