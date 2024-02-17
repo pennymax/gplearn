@@ -38,13 +38,13 @@ def error_handle_and_nan_mask(func):
     return wrapper
 
 def apply_column(x, func, *args, **kwargs):
-    r = np.empty_like(x)
+    r = np.full_like(x, np.nan)
     for i in range(x.shape[1]):
         r[:, i] = func(x[:, i], *args, **kwargs)
     return r
 
 def apply_column_2(x1, x2, func, *args, **kwargs):
-    r = np.empty_like(x1)
+    r = np.full_like(x1, np.nan)
     for i in range(x1.shape[1]):
         r[:, i] = func(x1[:, i], x2[:, i], *args, **kwargs)
     return r
@@ -52,12 +52,11 @@ def apply_column_2(x1, x2, func, *args, **kwargs):
 ## quite faster than rolling.apply() but slower than rolling.pd_support_func()
 def np_rolling_apply(x, w, func):
     if w > x.shape[0]:
-        return np.full(x.shape, np.nan)
+        return np.full_like(x, np.nan)
 
     roll_view = sliding_window_view(x, window_shape=w, axis=0)  # axis=0 split windows vertically (ts) 
 
-    result = np.empty((x.shape[0], x.shape[1]))
-    result[:w - 1] = np.nan  # 前 window - 1 个值设为 NaN
+    result = np.full_like(x, np.nan)
 
     for i in range(w - 1, x.shape[0]):
         result[i] = func(roll_view[i - w + 1], axis=1)  # apply func on each window horizontally. note: each window is a row in the roll_view!
