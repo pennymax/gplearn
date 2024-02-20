@@ -37,6 +37,7 @@ def error_handle_and_nan_mask(func):
         return result
     return wrapper
 
+## this func is almost same as np.apply_along_axis: np.apply_along_axis(lambda a: func(a, *args, **kwargs), axis=0, arr=x)
 def apply_column(x, func, *args, **kwargs):
     r = np.full_like(x, np.nan)
     for i in range(x.shape[1]):
@@ -394,20 +395,22 @@ _extra_function_map.update({f'ta_WMA_{w}': _Function(function=wrap_non_picklable
 
 # region ==== TA functions: Volume ====
 
+
+## !!! note: OBV is basically a cumsum; its value is very sensitive to the start point!
 @error_handle_and_nan_mask
 def ta_OBV(x1, x2):     ## use OBV as an arity 2 func
     return apply_column_2(x1, x2, talib.OBV)
-_extra_function_map.update({f'ta_OBV': _Function(function=wrap_non_picklable_objects(ta_OBV), name=f'ta_OBV', arity=2)})
+# _extra_function_map.update({f'ta_OBV': _Function(function=wrap_non_picklable_objects(ta_OBV), name=f'ta_OBV', arity=2)})
 
 @error_handle_and_nan_mask
 def cszs_ta_OBV(x1, x2):     ## use OBV as an arity 2 func
     return apply_column_2(cs_zscore(x1), cs_zscore(x2), talib.OBV)
-_extra_function_map.update({f'cszs_ta_OBV': _Function(function=wrap_non_picklable_objects(cszs_ta_OBV), name=f'cszs_ta_OBV', arity=2)})
+# _extra_function_map.update({f'cszs_ta_OBV': _Function(function=wrap_non_picklable_objects(cszs_ta_OBV), name=f'cszs_ta_OBV', arity=2)})
 
 @error_handle_and_nan_mask
 def tszs_ta_OBV(x1, x2, w):     ## use OBV as an arity 2 func
     return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
-_extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
+# _extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
 
 
 def _vwma(x1, x2, w):

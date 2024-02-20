@@ -110,7 +110,7 @@ def quantile_longshort_returns(y, y_pred, w, quantile, fee_rate) -> pd.Series:
         np.all(np.isnan(grouped_returns)) or np.all(np.isnan(factor_quantiles)) or \
         grouped_returns.shape[1] != quantile:
         return pd.Series()
-    longshort_rets = (grouped_returns[:, 34] - grouped_returns[:, 0]) / 2 ## not abs here as we need to calc camp and sub fee
+    longshort_rets = (grouped_returns[:, quantile-1] - grouped_returns[:, 0]) / 2 ## not abs here as we need to calc camp and sub fee
     # print('grouped_returns:', grouped_returns.shape)
     # print('factor_quantiles:', factor_quantiles.shape)
 
