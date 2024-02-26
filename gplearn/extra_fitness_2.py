@@ -28,15 +28,15 @@ def is_bad_data(y, y_pred, max_full_nan_cs_rate=0.3, min_valid_rate=0.7):
     return too_many_invalid_full_nan_cs or too_low_mean_valid_rate
 
 
-def quantile_returns_and_groups(y, y_pred, quantile):
+def quantile_returns_and_groups(y, y_pred, quantile, select_quantiles_for_grouped_returns=None):
     mask = np.isnan(y)
     y_pred_masked = np.where(mask, np.nan, y_pred)
 
-    # 初始化分位数数组
-    # quantiles = np.zeros_like(y_pred_masked)
+    ## 初始化分位数数组
     quantiles = np.full(y_pred_masked.shape, np.nan)
 
-    # 计算每个资产的排名和分位数，与 Pandas 版本相似
+    ## 计算每个资产的排名和分位数，与 Pandas 版本相似
+    ## we have to loop each line (cross section) as nan mask is different. No solution for non-loop vectorized yet...
     for i in range(y_pred_masked.shape[0]):
         cs = y_pred_masked[i, :]
         valid_mask = ~np.isnan(cs)
@@ -49,22 +49,26 @@ def quantile_returns_and_groups(y, y_pred, quantile):
     if np.all(np.isnan(quantiles)):
         return None, None
 
-    # 计算分组平均回报
-    dfy = pd.DataFrame(y)
-    stacked_rets = dfy.stack()
-    ## time x group_mean_return (group number)
-    grouped_returns = (
-        stacked_rets
-        .groupby([stacked_rets.index.get_level_values(0), pd.DataFrame(quantiles).stack()])
-        .mean()
-        .unstack()
-        .reindex(dfy.index)  ## to keep exact same shape with y
-        .to_numpy()
-        )
+    ## 计算分组平均回报
+    ## - select_quantiles_for_grouped_returns is used to save time, say if we only need [1, quantile] (save 60% time)
+    if select_quantiles_for_grouped_returns:
+        grouped_returns = np.array([np.nanmean(np.where(quantiles == q, y, np.nan), axis=1) 
+                                    for q in select_quantiles_for_grouped_returns]).T
+    ## - we can't use the same above code for all quantiles as it's slower 2x than below implementation
+    else:
+        dfy = pd.DataFrame(y)
+        stacked_rets = dfy.stack()
+        ## time x group_mean_return (group number)
+        grouped_returns = (
+            stacked_rets
+            .groupby([stacked_rets.index.get_level_values(0), pd.DataFrame(quantiles).stack()])
+            .mean()
+            .unstack()
+            .reindex(dfy.index)  ## to keep exact same shape with y
+            .to_numpy()
+            )
 
-    # print(grouped_returns.shape, quantiles.shape)
     assert(grouped_returns.shape[0] == quantiles.shape[0])
-
     return grouped_returns, quantiles
 
 def turnover_rates(arr):
