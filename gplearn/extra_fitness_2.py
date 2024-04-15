@@ -28,6 +28,43 @@ def is_bad_data(y, y_pred, max_full_nan_cs_rate=0.3, min_valid_rate=0.7):
     return too_many_invalid_full_nan_cs or too_low_mean_valid_rate
 
 
+## TODO: experiment below
+
+def truncate_top_bottom_k(x, k):
+    m, n = x.shape
+    
+    # 获取最大 k 个值的索引
+    topk_indices = np.argpartition(x, -k, axis=1)[:, -k:]
+    # 获取最小 k 个值的索引
+    bottomk_indices = np.argpartition(x, k-1, axis=1)[:, :k]
+    
+    # 计算每行的第 k 大值和第 k 小值
+    rows = np.arange(m)[:, None]
+    topk_vals = np.take_along_axis(x, topk_indices, axis=1).min(axis=1)
+    bottomk_vals = np.take_along_axis(x, bottomk_indices, axis=1).max(axis=1)
+    
+    # 创建掩码
+    is_top_k = np.zeros_like(x, dtype=bool)
+    is_bottom_k = np.zeros_like(x, dtype=bool)
+    
+    is_top_k[rows, topk_indices] = True
+    is_bottom_k[rows, bottomk_indices] = True
+    
+    # 返回两个掩码
+    return is_top_k, is_bottom_k
+
+def quantile_returns_and_groups_experiment(y, y_pred, quantile, select_quantiles_for_grouped_returns=None):
+
+    top_k_mask, bottom_k_mask = truncate_top_bottom_k(y_pred, 5)
+    grouped_returns = np.array([
+                            np.nanmean(np.where(top_k_mask, y, np.nan), axis=1),
+                            np.nanmean(np.where(bottom_k_mask, y, np.nan), axis=1),
+                        ]).T
+    quantiles = np.where(bottom_k_mask, 1, np.where(top_k_mask, quantile, np.nan))
+    return grouped_returns, quantiles
+
+
+   
 def quantile_returns_and_groups(y, y_pred, quantile, select_quantiles_for_grouped_returns=None):
     mask = np.isnan(y)
     y_pred_masked = np.where(mask, np.nan, y_pred)

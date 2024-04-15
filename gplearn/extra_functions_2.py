@@ -471,6 +471,7 @@ def ta_HTTRENDMODE(x):   # Hilbert Transform
 _extra_function_map.update({f'ta_HTTRENDMODE': _Function(function=wrap_non_picklable_objects(ta_HTTRENDMODE), name=f'ta_HTTRENDMODE', arity=1)})
 
 from pandas_ta.cycles.reflex import np_reflex
+## Caution!! function results highly depends on series start point!
 @error_handle_and_nan_mask
 def ta_REFLEX(x, w=10):
     ret = apply_column(x, np_reflex, n=w, k=w, alpha=0.04, pi=3.14159, sqrt2=1.414)

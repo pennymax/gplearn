@@ -8,6 +8,8 @@ from joblib import wrap_non_picklable_objects
 import pandas_ta as ta
 import talib
 from talib import MA_Type ## MA_Type.SMA, EMA, WMA, DEMA, TEMA, TRIMA, KAMA, MAMA, T3
+import bottleneck as bn
+import numba as nb
 
 
 
@@ -23,16 +25,19 @@ ts_lags = [1, 3, 5, 10] # used in like autocorr, etc.
 def error_handle_and_nan_mask(func):
     @functools.wraps(func)
     def wrapper(A, *args, **kwargs):
-        # 保存原始的 NaN 位置
-        nan_mask = np.isnan(A)
-
+    
         # 处理 NumPy 的错误状态
         with np.errstate(over='ignore', under='ignore'):
             result = func(A, *args, **kwargs)
 
-        # 应用 NaN 掩码
         assert(result.shape == A.shape)
-        result[nan_mask] = np.nan
+        
+        # 保存原始的 NaN 位置
+        # nan_mask = np.isnan(A)    ## take time, if we really need it? disable now 
+        # result[nan_mask] = np.nan
+
+        ## replace inf. 10x faster than np.nan_to_num(result, nan=np.nan, posinf=np.nan, neginf=np.nan)
+        result = bn.replace(bn.replace(result, -np.inf, np.nan), np.inf, np.nan)
 
         return result
     return wrapper
@@ -71,112 +76,95 @@ def np_rolling_apply(x, w, func):
 
 @error_handle_and_nan_mask
 def ts_zscore(x, w=60):
-    df = pd.DataFrame(x)
-    rolling = df.rolling(window=w, min_periods=int(w/2))
-    mean = rolling.mean()
-    std = rolling.std()
-
-    # 避免除以零：如果 std 是 0，设置结果为 NaN
-    zscore = (df - mean) / std
-    zscore[std == 0] = np.nan
-
-    return zscore.to_numpy(np.double)
+    m = bn.move_mean(x, window=w, min_count=int(w/2), axis=0)
+    s = bn.move_std(x, window=w, min_count=int(w/2), axis=0, ddof=1)
+    z = (x - m) / s
+    z[s == 0] = np.nan
+    return z
 _extra_function_map.update({f'tszs_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_zscore(x, w)), name=f'tszs_{w}', arity=1) for w in tszs_wins})
 
 @error_handle_and_nan_mask
 def ts_delay(x, w=1):
-    return pd.DataFrame(x).shift(w).to_numpy(dtype=np.double)
+    d = np.roll(x, w, axis=0)
+    d[:w, :] = np.nan
+    return d
 _extra_function_map.update({f'ts_delay_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_delay(x, w)), name=f'ts_delay_{w}', arity=1) for w in ts_wins})
 
 @error_handle_and_nan_mask
-def ts_diff(x, w=1):
+def ts_diff(x, w=1):    # numpy.diff is slower
     return pd.DataFrame(x).diff(w).to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_diff_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_diff(x, w)), name=f'ts_diff_{w}', arity=1) for w in ts_wins})
 
 @error_handle_and_nan_mask
-def ts_roc(x, w=1): # rate of change
-    ret = pd.DataFrame(x)
-    shifted_ret = ret.shift(w)
-    return np.where(shifted_ret == 0, np.nan, ret.diff(w) / shifted_ret.abs() - 1)  # do not use pct_change as it can not handle negative values as expect
+def ts_roc(x, w=1): # rate of change;
+    shifted_arr = np.roll(x, w, axis=0)
+    shifted_arr[:w, :] = np.nan
+    roc = (x - shifted_arr) / np.abs(shifted_arr) - 1
+    roc[np.abs(shifted_arr) == 0] = np.nan
+    return roc
 _extra_function_map.update({f'ts_roc_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_roc(x, w)), name=f'ts_roc_{w}', arity=1) for w in ts_wins})
 
 @error_handle_and_nan_mask
 def ts_sum(x, w=3):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).sum().to_numpy(dtype=np.double)
+    return bn.move_sum(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_sum_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_sum(x, w)), name=f'ts_sum_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
 def ts_mean(x, w=3):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).mean().to_numpy(dtype=np.double)
+    return bn.move_mean(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_mean_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_mean(x, w)), name=f'ts_mean_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
 def ts_median(x, w=3):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).median().to_numpy(dtype=np.double)
+    return bn.move_median(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_median_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_median(x, w)), name=f'ts_median_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
 def ts_std(x, w=5):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).std().to_numpy(dtype=np.double)
+    return bn.move_std(x, window=w, min_count=int(w/2), axis=0, ddof=1)
 _extra_function_map.update({f'ts_std_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_std(x, w)), name=f'ts_std_{w}', arity=1) for w in ts_wins if w >= 5})
 
 @error_handle_and_nan_mask
-def ts_skew(x, w=5):
+def ts_skew(x, w=5):    # pd is best for now
     return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).skew().to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_skew_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_skew(x, w)), name=f'ts_skew_{w}', arity=1) for w in ts_wins if w >= 5})
 
 @error_handle_and_nan_mask
-def ts_kurt(x, w=5):
+def ts_kurt(x, w=5):    # pd is best for now
     return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).kurt().to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_kurt_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_kurt(x, w)), name=f'ts_kurt_{w}', arity=1) for w in ts_wins if w >= 5})
 
 @error_handle_and_nan_mask
 def ts_max(x, w=5):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).max().to_numpy(dtype=np.double)
+    return bn.move_max(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_max_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_max(x, w)), name=f'ts_max_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
 def ts_min(x, w=5):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).min().to_numpy(dtype=np.double)
+    return bn.move_min(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_min_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_min(x, w)), name=f'ts_min_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
-def ts_rank(x, w=3):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).rank(pct=True).to_numpy(dtype=np.double)
+def ts_rank(x, w=3):    # range [-1, 1], different with pd
+    return bn.move_rank(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_rank_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_rank(x, w)), name=f'ts_rank_{w}', arity=1) for w in ts_wins if w >= 3})
 
 @error_handle_and_nan_mask
-def ts_autocorr(x, w=5, l=1):
+def ts_autocorr(x, w=5, l=1):   # no faster way for now
     """moving autocorrelation coefficient between x and x lag i period"""
     ret = pd.DataFrame(x)
     ret_lag = ret.shift(l)
     return ret.rolling(w, min_periods=int(w/2)).corr(ret_lag).replace([np.inf, -np.inf], np.nan).to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_autocorr_{w}_{l}': _Function(function=wrap_non_picklable_objects(lambda x, w=w, l=l: ts_autocorr(x, w, l)), name=f'ts_autocorr_{w}_{l}', arity=1) for w in ts_wins for l in ts_lags if w >=3 and l <= w})
 
-def safe_nanargmin(x, axis):
-    x = x.copy()
-    all_nan_col = np.all(np.isnan(x), axis=axis)
-    x[all_nan_col, :] = 0
-    ret = np.nanargmin(x, axis=axis).astype(float)
-    ret[all_nan_col] = np.nan
-    return ret
-
 @error_handle_and_nan_mask
 def ts_argmin(x, w=3):
-    return np_rolling_apply(x, w, safe_nanargmin)
+    return w - 1 - bn.move_argmin(x, window=w, min_count=int(w/2), axis=0) # move_argmin count index 0 from rightmost edge 
 _extra_function_map.update({f'ts_argmin_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_argmin(x, w)), name=f'ts_argmin_{w}', arity=1) for w in ts_wins if w >=3})
-
-def safe_nanargmax(x, axis):
-    x = x.copy()
-    all_nan_col = np.all(np.isnan(x), axis=axis)
-    x[all_nan_col, :] = 0
-    ret = np.nanargmax(x, axis=axis).astype(float)
-    ret[all_nan_col] = np.nan
-    return ret
 
 @error_handle_and_nan_mask
 def ts_argmax(x, w=3):
-    return np_rolling_apply(x, w, safe_nanargmax)
+    return w - 1 - bn.move_argmax(x, window=w, min_count=int(w/2), axis=0)  # move_argmax count index 0 from rightmost edge
 _extra_function_map.update({f'ts_argmax_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_argmax(x, w)), name=f'ts_argmax_{w}', arity=1) for w in ts_wins if w >=3})
 
 @error_handle_and_nan_mask
@@ -186,12 +174,12 @@ _extra_function_map.update({f'ts_quantile_{w}_0.25': _Function(function=wrap_non
 _extra_function_map.update({f'ts_quantile_{w}_0.75': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_quantile(x, w, 0.75)), name=f'ts_quantile_{w}_0.75', arity=1) for w in ts_wins if w >=5})
 
 @error_handle_and_nan_mask
-def ts_decreasing(x, w=5):
+def ts_decreasing(x, w=5):    # no faster way for now
     return pd.DataFrame(x).apply(lambda col: ta.decreasing(col, length=w, asint=True)).to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_decreasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_decreasing(x, w)), name=f'ts_decreasing_{w}', arity=1) for w in ts_wins if w >=3})
 
 @error_handle_and_nan_mask
-def ts_increasing(x, w=5):
+def ts_increasing(x, w=5):      # no faster way for now  
     return pd.DataFrame(x).apply(lambda col: ta.increasing(col, length=w, asint=True)).to_numpy(dtype=np.double)
 _extra_function_map.update({f'ts_increasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_increasing(x, w)), name=f'ts_increasing_{w}', arity=1) for w in ts_wins if w >=3})
 
@@ -209,25 +197,16 @@ _extra_function_map.update({f'ts_relative_{w}': _Function(function=wrap_non_pick
 
 @error_handle_and_nan_mask
 def cs_rank(x):
-    return pd.DataFrame(x).rank(axis=1, pct=True).to_numpy(dtype=np.double)
+    # return pd.DataFrame(x).rank(axis=1, pct=True).to_numpy(dtype=np.double)
+    return bn.nanrankdata(x, axis=1) / np.sum(~np.isnan(x), axis=1)[:, np.newaxis]  # actually no much perf gain
 _extra_function_map.update({'cs_rank': _Function(function=wrap_non_picklable_objects(lambda x: cs_rank(x)), name = 'cs_rank', arity=1)})
 
 @error_handle_and_nan_mask
 def cs_zscore(x):
-    # 检查每行是否全部为 NaN
-    all_nan_rows = np.isnan(x).all(axis=1)
-
-    # 为非全 NaN 的行计算均值和标准差
-    means = np.nanmean(x[~all_nan_rows], axis=1, keepdims=True)
-    stds = np.nanstd(x[~all_nan_rows], axis=1, keepdims=True)
-
-    # 初始化一个全为 NaN 的结果数组
-    z_scores = np.full(x.shape, np.nan)
-
-    # 只对非全 NaN 的行进行 Z-score 计算
-    z_scores[~all_nan_rows] = (x[~all_nan_rows] - means) / stds
-
-    return z_scores
+    m = bn.nanmean(x, axis=1)[:, np.newaxis]
+    s = bn.nanstd(x, axis=1, ddof=0)[:, np.newaxis]
+    z = (x - m) / s
+    return z
 _extra_function_map.update({'cs_zscore': _Function(function=wrap_non_picklable_objects(lambda x: cs_zscore(x)), name = 'cs_zscore', arity=1)})
 
 
@@ -245,7 +224,7 @@ _extra_function_map.update({f'ta_APO_12_26': _Function(function=wrap_non_picklab
 
 @error_handle_and_nan_mask
 def ta_CMO(x, timeperiod):
-    return apply_column(x, talib.CMO, timeperiod)
+    return np.apply_along_axis(talib.CMO, axis=0, arr=x, timeperiod=timeperiod)
 _extra_function_map.update({f'ta_CMO_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_CMO(x, w)), name=f'ta_CMO_{w}', arity=1) for w in [10]})
 
 def _macd(x, fastperiod, slowperiod, signalperiod, type=''):
