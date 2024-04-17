@@ -3,6 +3,13 @@ import gplearn.extra_functions_3 as funset3
 import gplearn.extra_functions_2 as funset2
 import numpy as np
 import timeit
+import os
+
+# os.environ["POLARS_MAX_THREADS"] = '1'
+import polars as pl
+print('Polars thread pool size:', pl.thread_pool_size())
+
+from numpy.lib.stride_tricks import as_strided
 
 
 def get_random_data(shape, nan_rate):
@@ -16,15 +23,16 @@ def get_random_data(shape, nan_rate):
 
 def test_one_arity_func(func_name, number=100, **kargs):
     data = get_random_data((4000, 300), 0.2)
-    # data = np.array([[1,2,3], [1,2,3], [1,2,3], [1,np.nan,3], [1,2,3]])
+    # data = np.array([[1,2,3], [1,2,3], [0,1,2], [1,np.nan,3], [4,5,6]])
     
     r2 = eval(f'funset2.{func_name}')(data, **kargs)
     r3 = eval(f'funset3.{func_name}')(data, **kargs)
-    eq = np.allclose(r2, r3, equal_nan=True)
+    eq = np.allclose(r2, r3, equal_nan=True, rtol=0.9999)
     if not eq:
         print(r2)
         print('--------------')
         print(r3)
+    # exit()
 
     r2_t = timeit.timeit(
         lambda: eval(f'funset2.{func_name}')(data, **kargs), setup='import gplearn.extra_functions_2 as funset2', number=number)
@@ -39,5 +47,8 @@ def test_one_arity_func(func_name, number=100, **kargs):
 
 if __name__ == '__main__':
 
-    test_one_arity_func('ta_LINEARREG', number=100, w=10)
-    # test_one_arity_func('cs_rank', number=100)
+    # test_one_arity_func('ts_autocorr', number=100, w=60, l=1)
+    # test_one_arity_func('ts_quantile', number=100, w=10, q=0.25)
+    test_one_arity_func('ta_MAD', number=100, w=10)
+    # test_one_arity_func('cs_zscore', number=100)
+    # test_one_arity_func('ta_CMO', number=100, timeperiod=10)

@@ -10,6 +10,9 @@ import talib
 from talib import MA_Type ## MA_Type.SMA, EMA, WMA, DEMA, TEMA, TRIMA, KAMA, MAMA, T3
 import bottleneck as bn
 import numba as nb
+import time
+import polars as pl
+import numbagg as nbgg
 
 
 
@@ -18,6 +21,8 @@ tszs_wins = [60, 120]
 ts_wins = [1, 3, 5, 10, 20, 40, 60]
 ts_lags = [1, 3, 5, 10] # used in like autocorr, etc.
 
+
+perf_data = {}
 
 
 # region ==== Utils ====
@@ -28,7 +33,17 @@ def error_handle_and_nan_mask(func):
     
         # 处理 NumPy 的错误状态
         with np.errstate(over='ignore', under='ignore'):
+            t0 = time.perf_counter()
             result = func(A, *args, **kwargs)
+            n = func.__name__
+            t = time.perf_counter() - t0
+            global perf_data
+            if n in perf_data:
+                perf_data[n]['count'] += 1
+                perf_data[n]['ttl_t'] += t
+                perf_data[n]['avg_t'] = perf_data[n]['ttl_t'] / perf_data[n]['count']
+            else:
+                perf_data[n] = {'count': 1, 'ttl_t': t, 'avg_t': t}
 
         assert(result.shape == A.shape)
         
@@ -74,12 +89,14 @@ def np_rolling_apply(x, w, func):
 
 # region ==== Time Series functions ====
 
+
 @error_handle_and_nan_mask
 def ts_zscore(x, w=60):
-    m = bn.move_mean(x, window=w, min_count=int(w/2), axis=0)
-    s = bn.move_std(x, window=w, min_count=int(w/2), axis=0, ddof=1)
+    m = nbgg.move_mean(x, window=w, min_count=int(w/2), axis=0)
+    s = nbgg.move_std(x, window=w, min_count=int(w/2), axis=0)
     z = (x - m) / s
     z[s == 0] = np.nan
+    # z = np.clip(z, -6, 6)
     return z
 _extra_function_map.update({f'tszs_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_zscore(x, w)), name=f'tszs_{w}', arity=1) for w in tszs_wins})
 
@@ -91,8 +108,11 @@ def ts_delay(x, w=1):
 _extra_function_map.update({f'ts_delay_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_delay(x, w)), name=f'ts_delay_{w}', arity=1) for w in ts_wins})
 
 @error_handle_and_nan_mask
-def ts_diff(x, w=1):    # numpy.diff is slower
-    return pd.DataFrame(x).diff(w).to_numpy(dtype=np.double)
+def ts_diff(x, w=1):    # numpy.diff is recursive, not this purpose
+    d = np.roll(x, w, axis=0)
+    d[:w, :] = np.nan
+    d = x - d
+    return d
 _extra_function_map.update({f'ts_diff_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_diff(x, w)), name=f'ts_diff_{w}', arity=1) for w in ts_wins})
 
 @error_handle_and_nan_mask
@@ -106,12 +126,14 @@ _extra_function_map.update({f'ts_roc_{w}': _Function(function=wrap_non_picklable
 
 @error_handle_and_nan_mask
 def ts_sum(x, w=3):
-    return bn.move_sum(x, window=w, min_count=int(w/2), axis=0)
+    # return bn.move_sum(x, window=w, min_count=int(w/2), axis=0)
+    return nbgg.move_sum(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_sum_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_sum(x, w)), name=f'ts_sum_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
 def ts_mean(x, w=3):
-    return bn.move_mean(x, window=w, min_count=int(w/2), axis=0)
+    # return bn.move_mean(x, window=w, min_count=int(w/2), axis=0)
+    return nbgg.move_mean(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_mean_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_mean(x, w)), name=f'ts_mean_{w}', arity=1) for w in ts_wins if w > 1})
 
 @error_handle_and_nan_mask
@@ -121,12 +143,14 @@ _extra_function_map.update({f'ts_median_{w}': _Function(function=wrap_non_pickla
 
 @error_handle_and_nan_mask
 def ts_std(x, w=5):
-    return bn.move_std(x, window=w, min_count=int(w/2), axis=0, ddof=1)
+    # return bn.move_std(x, window=w, min_count=int(w/2), axis=0, ddof=1)
+    return nbgg.move_std(x, window=w, min_count=int(w/2), axis=0)
 _extra_function_map.update({f'ts_std_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_std(x, w)), name=f'ts_std_{w}', arity=1) for w in ts_wins if w >= 5})
 
 @error_handle_and_nan_mask
 def ts_skew(x, w=5):    # pd is best for now
     return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).skew().to_numpy(dtype=np.double)
+    # return pl.DataFrame(x, orient='row', nan_to_null=True).with_columns(pl.all().rolling_skew(w)).to_numpy()
 _extra_function_map.update({f'ts_skew_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_skew(x, w)), name=f'ts_skew_{w}', arity=1) for w in ts_wins if w >= 5})
 
 @error_handle_and_nan_mask
@@ -152,9 +176,10 @@ _extra_function_map.update({f'ts_rank_{w}': _Function(function=wrap_non_picklabl
 @error_handle_and_nan_mask
 def ts_autocorr(x, w=5, l=1):   # no faster way for now
     """moving autocorrelation coefficient between x and x lag i period"""
-    ret = pd.DataFrame(x)
-    ret_lag = ret.shift(l)
-    return ret.rolling(w, min_periods=int(w/2)).corr(ret_lag).replace([np.inf, -np.inf], np.nan).to_numpy(dtype=np.double)
+    x_lagged = np.roll(x, l, axis=0)
+    x_lagged[:l, :] = np.nan
+    d = nbgg.move_corr(x, x_lagged, window=w, min_count=int(w/2), axis=0)
+    return d
 _extra_function_map.update({f'ts_autocorr_{w}_{l}': _Function(function=wrap_non_picklable_objects(lambda x, w=w, l=l: ts_autocorr(x, w, l)), name=f'ts_autocorr_{w}_{l}', arity=1) for w in ts_wins for l in ts_lags if w >=3 and l <= w})
 
 @error_handle_and_nan_mask
@@ -169,18 +194,20 @@ _extra_function_map.update({f'ts_argmax_{w}': _Function(function=wrap_non_pickla
 
 @error_handle_and_nan_mask
 def ts_quantile(x, w=5, q=0.25):
-    return pd.DataFrame(x).rolling(w, min_periods=int(w/2)).quantile(q).to_numpy(dtype=np.double)
+    return pl.DataFrame(x, orient='row', nan_to_null=True).with_columns(
+        pl.all().rolling_quantile(q, window_size=w, min_periods=int(w/2), interpolation='linear')
+    ).to_numpy()
 _extra_function_map.update({f'ts_quantile_{w}_0.25': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_quantile(x, w, 0.25)), name=f'ts_quantile_{w}_0.25', arity=1) for w in ts_wins if w >=5})
 _extra_function_map.update({f'ts_quantile_{w}_0.75': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_quantile(x, w, 0.75)), name=f'ts_quantile_{w}_0.75', arity=1) for w in ts_wins if w >=5})
 
 @error_handle_and_nan_mask
 def ts_decreasing(x, w=5):    # no faster way for now
-    return pd.DataFrame(x).apply(lambda col: ta.decreasing(col, length=w, asint=True)).to_numpy(dtype=np.double)
+    return (pd.DataFrame(x).diff(w) < 0).astype('int').to_numpy(np.double)
 _extra_function_map.update({f'ts_decreasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_decreasing(x, w)), name=f'ts_decreasing_{w}', arity=1) for w in ts_wins if w >=3})
 
 @error_handle_and_nan_mask
 def ts_increasing(x, w=5):      # no faster way for now  
-    return pd.DataFrame(x).apply(lambda col: ta.increasing(col, length=w, asint=True)).to_numpy(dtype=np.double)
+    return (pd.DataFrame(x).diff(w) > 0).astype('int').to_numpy(np.double)
 _extra_function_map.update({f'ts_increasing_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_increasing(x, w)), name=f'ts_increasing_{w}', arity=1) for w in ts_wins if w >=3})
 
 @error_handle_and_nan_mask
@@ -197,14 +224,15 @@ _extra_function_map.update({f'ts_relative_{w}': _Function(function=wrap_non_pick
 
 @error_handle_and_nan_mask
 def cs_rank(x):
-    # return pd.DataFrame(x).rank(axis=1, pct=True).to_numpy(dtype=np.double)
-    return bn.nanrankdata(x, axis=1) / np.sum(~np.isnan(x), axis=1)[:, np.newaxis]  # actually no much perf gain
+    return bn.nanrankdata(x, axis=1) / bn.nansum(~np.isnan(x), axis=1)[:, np.newaxis]  # actually no much perf gain
 _extra_function_map.update({'cs_rank': _Function(function=wrap_non_picklable_objects(lambda x: cs_rank(x)), name = 'cs_rank', arity=1)})
 
 @error_handle_and_nan_mask
 def cs_zscore(x):
-    m = bn.nanmean(x, axis=1)[:, np.newaxis]
-    s = bn.nanstd(x, axis=1, ddof=0)[:, np.newaxis]
+    # m = bn.nanmean(x, axis=1)[:, np.newaxis]
+    # s = bn.nanstd(x, axis=1, ddof=0)[:, np.newaxis]
+    m = nbgg.nanmean(x, axis=1)[:, np.newaxis]
+    s = nbgg.nanstd(x, axis=1, ddof=0)[:, np.newaxis]
     z = (x - m) / s
     return z
 _extra_function_map.update({'cs_zscore': _Function(function=wrap_non_picklable_objects(lambda x: cs_zscore(x)), name = 'cs_zscore', arity=1)})
@@ -495,18 +523,16 @@ _extra_function_map.update({f'ta_LINEARREG_SLOPE_{w}': _Function(function=wrap_n
 
 @error_handle_and_nan_mask
 def ta_TSF(x, w=10):  ## Time Series Forecast
-    return apply_column(x, talib.TSF, timeperiod=w)
+    return np.apply_along_axis(talib.TSF, axis=0, arr=x, timeperiod=w)
 _extra_function_map.update({f'ta_TSF_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_TSF(x, w)), name=f'ta_TSF_{w}', arity=1) for w in ts_wins if w >=10})
 
-def _mad(x, axis):
-    return np.mean(
-        np.fabs(
-            x - np.mean(x, axis=axis).reshape(-1, 1)
-            ), 
-        axis=1)
+## Mean absolute deviation around the median (not mean)
 @error_handle_and_nan_mask
 def ta_MAD(x, w=5):
-    return np_rolling_apply(x, w, _mad)
+    rolling_median = bn.move_mean(x, window=w, min_count=int(w/2), axis=0)
+    abs_dev = np.fabs(x - rolling_median)
+    mad = bn.move_mean(abs_dev, window=w, min_count=int(w/2), axis=0)
+    return mad
 _extra_function_map.update({f'ta_MAD_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_MAD(x, w)), name=f'ta_MAD_{w}', arity=1) for w in ts_wins if w >=5})
 
 
