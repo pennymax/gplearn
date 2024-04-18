@@ -170,7 +170,7 @@ if __name__ == '__main__':
     # test_compare_v2_v3_func('ts_quantile', number=100, w=10, q=0.25)
     # test_compare_v2_v3_func('ts_skew', number=100, w=10)
     # test_compare_v2_v3_func('ta_HTTRENDLINE', number=100)
-    # test_compare_v2_v3_func('ta_APO', number=100, fastperiod=12, slowperiod=26, matype=0)
+    test_compare_v2_v3_func('ta_APO', number=100, fastperiod=12, slowperiod=26, matype=0)
 
     # test_v3_functions()
 

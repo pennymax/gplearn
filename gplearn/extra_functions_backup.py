@@ -12,6 +12,7 @@ import bottleneck as bn
 import numba as nb
 import time
 import polars as pl
+from extra_functions_3 import *
 
 
 @nb.jit(nopython=True)
@@ -52,7 +53,7 @@ def rolling_autocorr(data, window_size, lag):
             result[i, j] = compute_autocorr(window, lag, window_size)
     return result
 
-@error_handle_and_nan_mask
+@pre_and_post_process
 def ts_autocorr(x, w=5, l=1):   # no faster way for now
     return rolling_autocorr(x, w, l)
 
@@ -91,13 +92,13 @@ def rolling_apply_mad_2(data, window_size):
     return result
 
 ## Mean absolute deviation around the median (not mean)
-@error_handle_and_nan_mask
+@pre_and_post_process
 def ta_MAD(x, w=5):
     return rolling_apply_mad(x, w)
 
 
 
-@error_handle_and_nan_mask
+@pre_and_post_process
 def ts_quantile(x, w=5, q=0.25):
     slide_view = sliding_window_view(x, w, axis=0)
     ret = np.full_like(x, np.nan)

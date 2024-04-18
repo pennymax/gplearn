@@ -40,7 +40,7 @@ def pre_and_post_process(func):
             nan_mask = np.isnan(A)
 
             ## forward fill on col 
-            # A = nbgg.ffill(A, axis=0)
+            A = nbgg.ffill(A, axis=0)
 
             ## call func
             result = func(A, *args, **kwargs)
