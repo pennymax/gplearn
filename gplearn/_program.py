@@ -19,6 +19,45 @@ from copy import  deepcopy
 warnings.filterwarnings("ignore")
 import time
 
+
+
+class FactorValueCache:
+
+    def __init__(self, max_cnt):
+        self.ttl = 0
+        self.ttl_hit = 0
+        self.max_cnt = max_cnt
+        self.cache = {}
+    
+    def get_sorted_cache(self, reverse=False):
+        if self.cache:
+            return sorted(self.cache.items(), key=lambda x: x[1]['cnt'], reverse=reverse)
+        else:
+            return {}
+    
+    def put(self, key, value):
+        # print('put')
+        if key in self.cache:
+            return
+        else:
+            if len(self.cache) >= self.max_cnt:
+                sorted_cache = self.get_sorted_cache()
+                min_key = sorted_cache[0][0]
+                # print('min_key:', min_key, sorted_cache[0][1]['cnt'])
+                if min_key:
+                    del self.cache[min_key]
+            self.cache[key] = {'cnt': 1, 'val': value}
+
+    def get(self, key):
+        self.ttl += 1
+        if key in self.cache and np.size(self.cache[key]['val']) > 0:
+            self.cache[key]['cnt'] += 1
+            self.ttl_hit += 1
+            return self.cache[key]['val']
+        else:
+            return np.array([])
+
+
 class _Program(object):
     """A program-like representation of the evolved program.
 
@@ -134,6 +173,7 @@ class _Program(object):
                  transformer=None,
                  feature_names=None,
                  program=None,
+                 p_cache=None,
                  verbose=0):
 
         self.function_set = function_set
@@ -163,6 +203,7 @@ class _Program(object):
         self._n_samples = None
         self._max_samples = None
         self._indices_state = None
+        self.p_cache: FactorValueCache = p_cache
 
 
     def build_program(self, random_state):
@@ -461,7 +502,23 @@ class _Program(object):
                 terminals = [np.tile(t, (X.shape[0],X.shape[2])) if isinstance(t, float) 
                              else X[:,t,:] if isinstance(t, int) 
                              else t for t in apply_stack[-1][1:]]
-                intermediate_result = function(*terminals)
+                
+                # cache
+                if self.p_cache:
+                    tm = [t for t in apply_stack[-1][1:] if isinstance(t, int)]
+                    if len(tm) == len(terminals):
+                        k = f'{function.name}__{str(tm)}'
+                        intermediate_result = self.p_cache.get(k)
+                        if not np.size(intermediate_result) > 0:
+                            intermediate_result = function(*terminals)
+                            self.p_cache.put(k, intermediate_result)
+                    else:
+                        self.p_cache.ttl += 1
+                        intermediate_result = function(*terminals)
+                else:
+                    self.p_cache.ttl += 1
+                    intermediate_result = function(*terminals)
+
                 if len(apply_stack) != 1:
                     apply_stack.pop()
                     apply_stack[-1].append(intermediate_result)
