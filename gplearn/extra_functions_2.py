@@ -520,9 +520,9 @@ def ta_TSF(x, w=10):  ## Time Series Forecast
 _extra_function_map.update({f'ta_TSF_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_TSF(x, w)), name=f'ta_TSF_{w}', arity=1) for w in ts_wins if w >=10})
 
 def _mad(x, axis):
-    return np.mean(
+    return np.nanmean(
         np.fabs(
-            x - np.mean(x, axis=axis).reshape(-1, 1)
+            x - np.nanmean(x, axis=axis).reshape(-1, 1)
             ), 
         axis=1)
 @error_handle_and_nan_mask

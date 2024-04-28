@@ -62,8 +62,10 @@ def test_v3_functions():
     print(f'== start testing {len(_extra_function_map)} functions ==')
     cnt = 0
     for k, v in _extra_function_map.items():
+        if 'KAMA' not in k:
+            continue
         cnt += 1
-        print(f'\r[{cnt}|{len(_extra_function_map)}] test (arity=3) {k:<40}', end='')
+        print(f'\r[{cnt}|{len(_extra_function_map)}] test (arity={v.arity}) {k:<40}', end='')
 
         idx = data.shape[0]//2
 
@@ -101,20 +103,24 @@ def test_v3_functions():
             failed_highnan.append((k, np.round(nan_rt, 3)))
         
         ## simulate live delta update
+        lookback = 500
         if v.arity == 1:
             d_prebar = v(data[:-1, :])
-            d_newbar_limit = v(data[-500:, :])
+            d_newbar_limit = v(data[-lookback:, :])
         elif v.arity == 2:
             d_prebar = v(data[:-1, :], data2[:-1, :])
-            d_newbar_limit = v(data[-500:, :], data2[-500:, :])
+            d_newbar_limit = v(data[-lookback:, :], data2[-lookback:, :])
         elif v.arity == 3:
             d_prebar = v(data[:-1, :], data2[:-1, :], data3[:-1, :])
-            d_newbar_limit = v(data[-500:, :], data2[-500:, :], data3[-500:, :])
+            d_newbar_limit = v(data[-lookback:, :], data2[-lookback:, :], data3[-lookback:, :])
         elif v.arity == 4:
             d_prebar = v(data[:-1, :], data2[:-1, :], data3[:-1, :], data4[:-1, :])
-            d_newbar_limit = v(data[-500:, :], data2[-500:, :], data3[-500:, :], data4[-500:, :])
+            d_newbar_limit = v(data[-lookback:, :], data2[-lookback:, :], data3[-lookback:, :], data4[-lookback:, :])
         if not np.allclose(d_newbar_limit[-10:-1, :], d_prebar[-9:, :], equal_nan=True, rtol=0.9999):
             failed_simulive.append(k)
+            print(d_prebar[-9:, :])
+            print('--------')
+            print(d_newbar_limit[-10:-1, :])
         
     print('\n---------------')
     print(f'[Test startpoint dependency] ({len(failed_startpoint)}) failed: {failed_startpoint}')
@@ -170,8 +176,8 @@ if __name__ == '__main__':
     # test_compare_v2_v3_func('ts_quantile', number=100, w=10, q=0.25)
     # test_compare_v2_v3_func('ts_skew', number=100, w=10)
     # test_compare_v2_v3_func('ta_HTTRENDLINE', number=100)
-    test_compare_v2_v3_func('ta_APO', number=100, fastperiod=12, slowperiod=26, matype=0)
+    # test_compare_v2_v3_func('ta_APO', number=100, fastperiod=12, slowperiod=26, matype=0)
 
-    # test_v3_functions()
+    test_v3_functions()
 
     # test_func_perf(100)

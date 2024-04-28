@@ -211,7 +211,7 @@ def apply_column_2(x1, x2, func, *args, **kwargs):
         r[:, i] = func(x1[:, i], x2[:, i], *args, **kwargs)
     return r
 
-## quite faster than rolling.apply() but slower than rolling.pd_support_func()
+## quite faster than pd.rolling.apply() but slower than pd.rolling.pd_support_func()
 def np_rolling_apply(x, w, func):
     if w > x.shape[0]:
         return np.full_like(x, np.nan)

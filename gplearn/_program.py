@@ -43,7 +43,6 @@ class FactorValueCache:
             if len(self.cache) >= self.max_cnt:
                 sorted_cache = self.get_sorted_cache()
                 min_key = sorted_cache[0][0]
-                # print('min_key:', min_key, sorted_cache[0][1]['cnt'])
                 if min_key:
                     del self.cache[min_key]
             self.cache[key] = {'cnt': 1, 'val': value}
@@ -53,9 +52,23 @@ class FactorValueCache:
         if key in self.cache and np.size(self.cache[key]['val']) > 0:
             self.cache[key]['cnt'] += 1
             self.ttl_hit += 1
-            return self.cache[key]['val']
+            return self.cache[key]['val'].astype(np.float64)
         else:
             return np.array([])
+
+
+class FactorValueCacheWhitList(FactorValueCache):
+    def __init__(self, whiteList_keys):
+        super().__init__(0)
+        for k in whiteList_keys:
+            self.cache[k] = {'cnt': 0, 'val': np.array([])}
+    
+    def put(self, key, value: np.ndarray):
+        # print('put')
+        if key in self.cache and self.cache[key]['cnt'] < 1:
+            self.cache[key] = {'cnt': 1, 'val': value.astype(np.float32)}
+            return
+
 
 
 class _Program(object):
@@ -507,7 +520,7 @@ class _Program(object):
                 if self.p_cache:
                     tm = [t for t in apply_stack[-1][1:] if isinstance(t, int)]
                     if len(tm) == len(terminals):
-                        k = f'{function.name}__{str(tm)}'
+                        k = f'{function.name}({", ".join([str(t) for t in tm])})'
                         intermediate_result = self.p_cache.get(k)
                         if not np.size(intermediate_result) > 0:
                             intermediate_result = function(*terminals)
@@ -516,7 +529,8 @@ class _Program(object):
                         self.p_cache.ttl += 1
                         intermediate_result = function(*terminals)
                 else:
-                    self.p_cache.ttl += 1
+                    if self.p_cache:
+                        self.p_cache.ttl += 1
                     intermediate_result = function(*terminals)
 
                 if len(apply_stack) != 1:
@@ -527,6 +541,46 @@ class _Program(object):
 
         # We should never get here
         return None
+    
+
+    def build_sub_expressions(self):
+        
+        # Check for single-node programs
+        node = self.program[0]
+
+        if isinstance(node, float):
+            return []
+        if isinstance(node, int):
+            return []
+
+        apply_stack = []
+        sub_expr = []
+
+        for node in self.program:
+
+            if isinstance(node, _Function):
+                apply_stack.append([node])
+            else:
+                apply_stack[-1].append(node)
+
+            while len(apply_stack[-1]) == apply_stack[-1][0].arity + 1:
+                # Apply functions that have sufficient arguments
+                function = apply_stack[-1][0]
+                terminals = apply_stack[-1][1:]
+                tm = [t for t in apply_stack[-1][1:] if isinstance(t, int)]  # only take care of lowest level expression (ts_sum_5(10))
+                intermediate_expr = f'{function.name}({", ".join([str(t) for t in terminals])})'
+                if len(tm) == len(terminals):
+                    sub_expr.append(intermediate_expr)
+
+                if len(apply_stack) != 1:
+                    apply_stack.pop()
+                    apply_stack[-1].append(intermediate_expr)
+                else:
+                    return sub_expr
+
+        # We should never get here
+        return None
+
 
 
     def get_all_indices(self, n_samples=None, max_samples=None,

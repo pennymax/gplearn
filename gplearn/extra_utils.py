@@ -3,6 +3,7 @@ import pandas as pd
 import time
 
 from gplearn._program import _Program
+# from gplearn.extra_functions_3 import *
 from gplearn.extra_functions_2 import *
 from gplearn.utils import *
 
@@ -75,11 +76,21 @@ def get_y_pred(exp, X, function_set, feature_names, debug=True):
     y_pred = gp.execute_3D(X)
     return y_pred
 
+def winsorize_2d(arr):
+    Q1 = np.nanpercentile(arr, 25, axis=1, keepdims=True)  # 计算每行的Q1
+    Q3 = np.nanpercentile(arr, 75, axis=1, keepdims=True)  # 计算每行的Q3
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    arr_winsorized = np.where(np.isnan(arr), arr, np.clip(arr, lower_bound, upper_bound))
+    return arr_winsorized
 
-def combine_factors__avg(exps, X, function_set, feature_names, use_rank=False, zscore=True):
+def combine_factors__avg(exps, X, function_set, feature_names, use_rank=False, zscore=True, remove_outlier=False):
     all_y_preds = []
     for exp in exps:
         y_pred = get_y_pred(exp, X, function_set, feature_names, debug=False)
+        if remove_outlier:
+            y_pred = winsorize_2d(y_pred)
         y_pred = cs_zscore(y_pred) if zscore else y_pred
         if use_rank:
             all_y_preds.append(pd.DataFrame(y_pred).rank(axis=1))
