@@ -103,7 +103,7 @@ def test_v3_functions():
             failed_highnan.append((k, np.round(nan_rt, 3)))
         
         ## simulate live delta update
-        lookback = 500
+        lookback = 2000
         if v.arity == 1:
             d_prebar = v(data[:-1, :])
             d_newbar_limit = v(data[-lookback:, :])

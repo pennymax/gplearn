@@ -890,6 +890,19 @@ _extra_function_map.update({'if_larger_then_else': _Function(function=wrap_non_p
 # endregion
 
 
+# region ======= valuable function but use them under conditions
+
+## [Test simulate live delta update] failed (on 500 lookback)
+## [Test simulate live delta update] passed (on 2000 lookback) -- use it carefully
+@pre_and_post_process
+def ta_KAMA(x, timeperiod):
+    # x = nbgg.ffill(x)
+    # x = np.where(np.isnan(x), 0, x)
+    return np.apply_along_axis(talib.KAMA, 0, x, timeperiod)
+_extra_function_map.update({f'ta_KAMA_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_KAMA(x, w)), name=f'ta_KAMA_{w}', arity=1) for w in ts_wins if w >=5})
+
+# endregion
+
 
 # region ======= disabled functions
 
@@ -941,13 +954,6 @@ def cszs_ta_OBV(x1, x2):     ## use OBV as an arity 2 func
 def tszs_ta_OBV(x1, x2, w):     ## use OBV as an arity 2 func
     return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
 # _extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
-
-
-## [Test simulate live delta update] failed (on 500 lookback)
-@pre_and_post_process
-def ta_KAMA(x, timeperiod):
-    return np.apply_along_axis(talib.KAMA, 0, x, timeperiod)
-# _extra_function_map.update({f'ta_KAMA_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_KAMA(x, w)), name=f'ta_KAMA_{w}', arity=1) for w in ts_wins if w >=5})
 
 
 # endregion
