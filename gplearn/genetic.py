@@ -33,8 +33,12 @@ from .fitness import _fitness_map, _Fitness
 from .functions import _function_map, _Function, sig1 as sigmoid
 from .utils import _partition_estimators
 from .utils import check_random_state
-from .extra_functions_2 import _extra_function_map
-from .extra_fitness_2 import _extra_fitness_map
+
+# from .extra_functions_2 import _extra_function_map
+# from .extra_fitness_2 import _extra_fitness_map
+
+from .extra_functions_3 import _extra_function_map
+from .extra_fitness_3 import _extra_fitness_map
 
 
 _all_func_dictionary = dict(_function_map,**_extra_function_map)
