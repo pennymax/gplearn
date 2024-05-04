@@ -359,6 +359,25 @@ def ts_relative(x, w=5):
     return np.divide(x, sma, out=np.zeros_like(x), where=sma!=0)
 _extra_function_map.update({f'ts_relative_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_relative(x, w)), name=f'ts_relative_{w}', arity=1) for w in ts_wins if w >=3})
 
+## ER (Efficiency Ratio, https://mp.weixin.qq.com/s/wqr-o5CfksS_K3OO8PzK8g)
+@pre_and_post_process
+def ts_ER(x, w=5):
+    # abs diff of delay w
+    d = np.roll(x, w, axis=0)
+    d[:w, :] = np.nan
+    d = np.abs(x - d)
+    # sum of abs of delay 1
+    d2 = np.roll(x, 1, axis=0)
+    d2[:w, :] = np.nan
+    d2 = np.abs(x - d2)
+    d2 = nbgg.move_sum(d2, window=w, min_count=int(w/2), axis=0)
+    # er
+    er = np.divide(d, d2, out=np.full(x.shape, np.nan), where=d2!=0)
+    er = np.where((er < 0.0) | (er > 1.0), np.nan, er)  # range [0, 1]
+    return er
+_extra_function_map.update({f'ts_ER_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_ER(x, w)), name=f'ts_ER_{w}', arity=1) for w in ts_wins if w >=5})
+
+
 #endregion
 
 
@@ -371,8 +390,6 @@ _extra_function_map.update({'cs_rank': _Function(function=wrap_non_picklable_obj
 
 @pre_and_post_process
 def cs_zscore(x):
-    # m = bn.nanmean(x, axis=1)[:, np.newaxis]
-    # s = bn.nanstd(x, axis=1, ddof=0)[:, np.newaxis]
     m = nbgg.nanmean(x, axis=1)[:, np.newaxis]
     s = nbgg.nanstd(x, axis=1, ddof=0)[:, np.newaxis]
     z = (x - m) / s

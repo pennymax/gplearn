@@ -62,7 +62,7 @@ def test_v3_functions():
     print(f'== start testing {len(_extra_function_map)} functions ==')
     cnt = 0
     for k, v in _extra_function_map.items():
-        if 'KAMA' not in k:
+        if 'ts_ER' not in k:
             continue
         cnt += 1
         print(f'\r[{cnt}|{len(_extra_function_map)}] test (arity={v.arity}) {k:<40}', end='')
