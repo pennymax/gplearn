@@ -257,6 +257,13 @@ def ts_diff(x, w=3):    # numpy.diff is recursive, not this purpose
 _extra_function_map.update({f'ts_diff_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_diff(x, w)), name=f'ts_diff_{w}', arity=1) for w in ts_wins})
 
 @pre_and_post_process
+def ts_diff2nd(x, w=3):    # numpy.diff is recursive, not this purpose
+    d1 = ts_diff(x, w)
+    d2 = ts_diff(d1, w)
+    return d2
+_extra_function_map.update({f'ts_diff2nd_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ts_diff2nd(x, w)), name=f'ts_diff2nd_{w}', arity=1) for w in ts_wins})
+
+@pre_and_post_process
 def ts_roc(x, w=3): # rate of change;
     shifted_arr = np.roll(x, w, axis=0)
     shifted_arr[:w, :] = np.nan
