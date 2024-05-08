@@ -393,7 +393,7 @@ _extra_function_map.update({f'ts_ER_{w}': _Function(function=wrap_non_picklable_
 @pre_and_post_process
 def cs_rank(x):
     return bn.nanrankdata(x, axis=1) / bn.nansum(~np.isnan(x), axis=1)[:, np.newaxis]  # actually no much perf gain
-_extra_function_map.update({'cs_rank': _Function(function=wrap_non_picklable_objects(lambda x: cs_rank(x)), name = 'cs_rank', arity=1)})
+# _extra_function_map.update({'cs_rank': _Function(function=wrap_non_picklable_objects(lambda x: cs_rank(x)), name = 'cs_rank', arity=1)})
 
 @pre_and_post_process
 def cs_zscore(x):
@@ -402,7 +402,7 @@ def cs_zscore(x):
     z = (x - m) / s
     z = np.clip(z, -6, 6)
     return z
-_extra_function_map.update({'cs_zscore': _Function(function=wrap_non_picklable_objects(lambda x: cs_zscore(x)), name = 'cs_zscore', arity=1)})
+# _extra_function_map.update({'cs_zscore': _Function(function=wrap_non_picklable_objects(lambda x: cs_zscore(x)), name = 'cs_zscore', arity=1)})
 
 
 # endregion
@@ -733,7 +733,7 @@ _extra_function_map.update({f'add': _Function(function=wrap_non_picklable_object
 @pre_and_post_process_2
 def cszs_add(x1, x2):
     return np.add(cs_zscore(x1), cs_zscore(x2))
-_extra_function_map.update({f'cszs_add': _Function(function=wrap_non_picklable_objects(cszs_add), name=f'cszs_add', arity=2)})
+# _extra_function_map.update({f'cszs_add': _Function(function=wrap_non_picklable_objects(cszs_add), name=f'cszs_add', arity=2)})
 
 @pre_and_post_process_2
 def tszs_add(x1, x2, w):
@@ -749,7 +749,7 @@ _extra_function_map.update({f'sub': _Function(function=wrap_non_picklable_object
 @pre_and_post_process_2
 def cszs_sub(x1, x2):
     return np.subtract(cs_zscore(x1), cs_zscore(x2))
-_extra_function_map.update({f'cszs_sub': _Function(function=wrap_non_picklable_objects(cszs_sub), name=f'cszs_sub', arity=2)})
+# _extra_function_map.update({f'cszs_sub': _Function(function=wrap_non_picklable_objects(cszs_sub), name=f'cszs_sub', arity=2)})
 
 @pre_and_post_process_2
 def tszs_sub(x1, x2, w):
@@ -765,7 +765,7 @@ _extra_function_map.update({f'mul': _Function(function=wrap_non_picklable_object
 @pre_and_post_process_2
 def cszs_mul(x1, x2):
     return np.multiply(cs_zscore(x1), cs_zscore(x2))
-_extra_function_map.update({f'cszs_mul': _Function(function=wrap_non_picklable_objects(cszs_mul), name=f'cszs_mul', arity=2)})
+# _extra_function_map.update({f'cszs_mul': _Function(function=wrap_non_picklable_objects(cszs_mul), name=f'cszs_mul', arity=2)})
 
 @pre_and_post_process_2
 def tszs_mul(x1, x2, w):
@@ -782,7 +782,7 @@ _extra_function_map.update({f'div': _Function(function=wrap_non_picklable_object
 def cszs_div(x1, x2):
     cszs_x2 = cs_zscore(x2)
     return np.where(cszs_x2 > 0.001, np.divide(cs_zscore(x1), cszs_x2), 1.)
-_extra_function_map.update({f'cszs_div': _Function(function=wrap_non_picklable_objects(cszs_div), name=f'cszs_div', arity=2)})
+# _extra_function_map.update({f'cszs_div': _Function(function=wrap_non_picklable_objects(cszs_div), name=f'cszs_div', arity=2)})
 
 @pre_and_post_process_2
 def tszs_div(x1, x2, w):
@@ -797,7 +797,7 @@ _extra_function_map.update({f'max': _Function(function=wrap_non_picklable_object
 @pre_and_post_process_2
 def cszs_max(x1, x2):
     return np.maximum(cs_zscore(x1), cs_zscore(x2))
-_extra_function_map.update({f'cszs_max': _Function(function=wrap_non_picklable_objects(cszs_max), name=f'cszs_max', arity=2)})
+# _extra_function_map.update({f'cszs_max': _Function(function=wrap_non_picklable_objects(cszs_max), name=f'cszs_max', arity=2)})
 
 @pre_and_post_process_2
 def tszs_max(x1, x2, w):
@@ -813,7 +813,7 @@ _extra_function_map.update({f'min': _Function(function=wrap_non_picklable_object
 @pre_and_post_process_2
 def cszs_min(x1, x2):
     return np.minimum(cs_zscore(x1), cs_zscore(x2))
-_extra_function_map.update({f'cszs_min': _Function(function=wrap_non_picklable_objects(cszs_min), name=f'cszs_min', arity=2)})
+# _extra_function_map.update({f'cszs_min': _Function(function=wrap_non_picklable_objects(cszs_min), name=f'cszs_min', arity=2)})
 
 @pre_and_post_process_2
 def tszs_min(x1, x2, w):
