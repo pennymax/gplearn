@@ -9,6 +9,7 @@ from .fitness import _Fitness
 
 _bad_fitness_val = -1000
 _annual_bar_8h = 365 * 3
+_annual_bar_4h = 365 * 6
 _fee_rate = 0.001
 
 
@@ -101,12 +102,18 @@ def convert_factor_value_to_returns(y, y_pred, universe_mask, fee_rate, pfl_cnt)
 def pfl5_longshort_sharpe_simple_with_fee(y, y_pred, w):
     ls_ret = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=5)
     return sharpe_simple(ls_ret, annual_periods=_annual_bar_8h)
+
+def pfl5_longshort_sharpe_simple_with_fee_4h(y, y_pred, w):
+    ls_ret = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=5)
+    return sharpe_simple(ls_ret, annual_periods=_annual_bar_4h)
     
 
 _extra_fitness_map = {
 
-    ## Sharpe simple
+    ## Sharpe simple (8h)
     'pfl5_longshort_sharpe_simple_with_fee':  _Fitness(function=pfl5_longshort_sharpe_simple_with_fee, greater_is_better=True), 
-}
 
+    ## Sharpe simple (4h)
+    'pfl5_longshort_sharpe_simple_with_fee_4h':  _Fitness(function=pfl5_longshort_sharpe_simple_with_fee_4h, greater_is_better=True), 
+}
 

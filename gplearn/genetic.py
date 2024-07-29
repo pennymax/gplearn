@@ -1963,13 +1963,17 @@ class SymbolicTransformer(BaseSymbolic, TransformerMixin):
             for program in self._total_program.values():
                 result.append({"Expression": program.__str__(),
                                         "Fitness": program.raw_fitness_,
-                                        "OOB Fitness": program.oob_fitness_
+                                        "OOB Fitness": program.oob_fitness_,
+                                        'exp_depth': program.depth_,
+                                        'exp_length': program.length_
                                         })
         else:            
             for program in self._best_programs:
                 result.append({"Expression": program.__str__(),
                                         "Fitness": program.raw_fitness_,
                                         "OOB Fitness": program.oob_fitness_,
+                                        'exp_depth': program.depth_,
+                                        'exp_length': program.length_
                                         })
         return result
 
