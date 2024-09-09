@@ -97,7 +97,7 @@ def convert_factor_value_to_returns(y, y_pred, fee_rate):
     if is_bad_data(y, y_pred):
         return np.array([])
         
-    ## 
+    ## y_pred -> OLS prediction -> returns
     dffct_vals = (
         pl.DataFrame(y_pred, orient='row', nan_to_null=True)
         .with_columns(

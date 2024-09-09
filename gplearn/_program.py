@@ -58,15 +58,19 @@ class FactorValueCache:
 
 
 class FactorValueCacheWhitList(FactorValueCache):
-    def __init__(self, whiteList_keys):
+    def __init__(self, whiteList_keys, cast_float32=True):
         super().__init__(0)
+        self.cast_float32 = cast_float32
         for k in whiteList_keys:
             self.cache[k] = {'cnt': 0, 'val': np.array([])}
     
     def put(self, key, value: np.ndarray):
         # print('put')
         if key in self.cache and self.cache[key]['cnt'] < 1:
-            self.cache[key] = {'cnt': 1, 'val': value.astype(np.float32)}
+            if self.cast_float32:
+                self.cache[key] = {'cnt': 1, 'val': value.astype(np.float32)}     # float32 cause some inconsistence on results
+            else:
+                self.cache[key] = {'cnt': 1, 'val': value.astype(np.float64)}
             return
 
 

@@ -24,6 +24,18 @@ ts_lags = [1, 3, 5, 10] # used in like autocorr, etc.
 
 perf_data = {}
 
+def _perf_log(func, t0):
+    # n = func.__name__
+    # t = time.perf_counter() - t0
+    # global perf_data
+    # if n in perf_data:
+    #     perf_data[n]['count'] += 1
+    #     perf_data[n]['ttl_t'] += t
+    #     perf_data[n]['avg_t'] = perf_data[n]['ttl_t'] / perf_data[n]['count']
+    # else:
+    #     perf_data[n] = {'count': 1, 'ttl_t': t, 'avg_t': t}
+    ...
+
 
 # region ==== Utils ====
 
@@ -46,15 +58,7 @@ def pre_and_post_process(func):
             result = func(A, *args, **kwargs)
             
             ## time logging
-            n = func.__name__
-            t = time.perf_counter() - t0
-            global perf_data
-            if n in perf_data:
-                perf_data[n]['count'] += 1
-                perf_data[n]['ttl_t'] += t
-                perf_data[n]['avg_t'] = perf_data[n]['ttl_t'] / perf_data[n]['count']
-            else:
-                perf_data[n] = {'count': 1, 'ttl_t': t, 'avg_t': t}
+            _perf_log(func, t0)
 
         ## check shape
         assert(result.shape == A.shape)
@@ -90,15 +94,7 @@ def pre_and_post_process_2(func):
             result = func(A, B, *args, **kwargs)
             
             ## time logging
-            n = func.__name__
-            t = time.perf_counter() - t0
-            global perf_data
-            if n in perf_data:
-                perf_data[n]['count'] += 1
-                perf_data[n]['ttl_t'] += t
-                perf_data[n]['avg_t'] = perf_data[n]['ttl_t'] / perf_data[n]['count']
-            else:
-                perf_data[n] = {'count': 1, 'ttl_t': t, 'avg_t': t}
+            _perf_log(func, t0)
 
         ## check shape
         assert(result.shape == A.shape)
@@ -135,15 +131,7 @@ def pre_and_post_process_3(func):
             result = func(A, B, C, *args, **kwargs)
             
             ## time logging
-            n = func.__name__
-            t = time.perf_counter() - t0
-            global perf_data
-            if n in perf_data:
-                perf_data[n]['count'] += 1
-                perf_data[n]['ttl_t'] += t
-                perf_data[n]['avg_t'] = perf_data[n]['ttl_t'] / perf_data[n]['count']
-            else:
-                perf_data[n] = {'count': 1, 'ttl_t': t, 'avg_t': t}
+            _perf_log(func, t0)
 
         ## check shape
         assert(result.shape == A.shape)
@@ -181,15 +169,7 @@ def pre_and_post_process_4(func):
             result = func(A, B, C, D, *args, **kwargs)
             
             ## time logging
-            n = func.__name__
-            t = time.perf_counter() - t0
-            global perf_data
-            if n in perf_data:
-                perf_data[n]['count'] += 1
-                perf_data[n]['ttl_t'] += t
-                perf_data[n]['avg_t'] = perf_data[n]['ttl_t'] / perf_data[n]['count']
-            else:
-                perf_data[n] = {'count': 1, 'ttl_t': t, 'avg_t': t}
+            _perf_log(func, t0)
 
         ## check shape
         assert(result.shape == A.shape)
