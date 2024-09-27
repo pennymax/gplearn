@@ -67,19 +67,28 @@ def get_topmean_and_turnover(factor_val, y_masked, pfl_cnt):
     return pfl_rets, turnover_from2nd, pfl
 
 
-def convert_factor_value_to_returns(y, y_pred, universe_mask, fee_rate, pfl_cnt):
+def convert_factor_value_to_returns(y, y_pred, mask_time_and_universe, fee_rate, pfl_cnt):
     ## check shape consistency
     if y.shape[0] != y_pred.shape[0]:
         return np.array([])
     
+    ## mask_time_and_universe contains offset months data and universe data.
+    ## here we need to remove offset months data
+    ## see mask_time_and_universe define in gplearn pipeline_steps.py
+    mask_time = np.any(mask_time_and_universe, axis=1)  # flag rows w/o full nans
+    mask = mask_time_and_universe[mask_time]            # filter out rows w/ full nans, a.k.a offset months data
+    y = y[mask_time]                                    # filter out offset months data
+    y_pred = y_pred[mask_time]                          # filter out offset months data
+    # print(mask_time_and_universe.shape, mask.shape, y.shape, y_pred.shape)
+    
     ## mask fct on universal symbols
-    fct_masked = np.where(universe_mask, y_pred, np.nan)
+    fct_masked = np.where(mask, y_pred, np.nan)
     
     ## mask y on valid fct
     y_masked = np.where(np.isnan(fct_masked), np.nan, y)
     
     ## check data quality
-    if is_bad_data(y, y_pred):
+    if is_bad_data(y_masked, fct_masked):
          return np.array([])
     
     ## get long and short mean return on each time cross section
