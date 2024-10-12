@@ -11,6 +11,7 @@ _bad_fitness_val = -1000
 _annual_bar_8h = 365 * 3
 _annual_bar_4h = 365 * 6
 _fee_rate = 0.001
+_duprate_thresh = 0.3   # 0: no dup, 1: all dup
 
 
 def is_bad_data(y, y_pred, max_full_nan_cs_rate=0.3, min_valid_rate=0.7):
@@ -63,8 +64,16 @@ def get_topmean_and_turnover(factor_val, y_masked, pfl_cnt):
     pfl[np.isnan(factor_val)] = False
     pfl_diff = np.abs(np.diff(pfl, axis=0)) # result of diff from 2nd
     turnover_from2nd = bn.nansum(pfl_diff, axis=1) / 2 / pfl_cnt
+
+    ## calculate duplicated rate: (orig_len- uniqu_len) / (orig_len - 1) for each row in selected fctvalus. 0: no dup, 1: all dup
+    ## this is used to identify unstable factors which produced duplicated factor values and is hard to identiy stable top symbols for portfolio
+    top_fctvals = np.take_along_axis(factor_val, indices, axis=1)
+    duplicate_rates = [
+        (top_fctvals.shape[1] - np.unique(row).shape[0]) / (top_fctvals.shape[1] - 1) 
+        for row in top_fctvals
+    ]
     
-    return pfl_rets, turnover_from2nd, pfl
+    return pfl_rets, turnover_from2nd, pfl, duplicate_rates
 
 
 def convert_factor_value_to_returns(y, y_pred, mask_time_and_universe, fee_rate, pfl_cnt):
@@ -89,19 +98,22 @@ def convert_factor_value_to_returns(y, y_pred, mask_time_and_universe, fee_rate,
     
     ## check data quality
     if is_bad_data(y_masked, fct_masked):
-         return np.array([])
+         return np.array([]), -1
     
     ## get long and short mean return on each time cross section
-    short_rets, short_to, _ = get_topmean_and_turnover(fct_masked, y_masked, pfl_cnt)
-    long_rets, long_to, _   = get_topmean_and_turnover(-fct_masked, y_masked, pfl_cnt)
+    short_rets, short_to, _, short_duprates = get_topmean_and_turnover(fct_masked, y_masked, pfl_cnt)
+    long_rets, long_to, _, long_duprates = get_topmean_and_turnover(-fct_masked, y_masked, pfl_cnt)
     
     ## get longshort return with fee 
     longshort_ret = (long_rets - short_rets) * 0.5
     longshort_fee = (long_to + short_to) * fee_rate * 0.5
     longshort_ret[1:] -= longshort_fee
     longshort_ret[0] -= fee_rate * 0.5  # only approximate correct
+
+    duprate = np.nanmean([short_duprates, long_duprates], axis=0)
+    duprate = np.nanmean(duprate, axis=0)
     
-    return longshort_ret
+    return longshort_ret, duprate
     
     
 ##################################
@@ -109,12 +121,18 @@ def convert_factor_value_to_returns(y, y_pred, mask_time_and_universe, fee_rate,
 ##################################
 
 def pfl5_longshort_sharpe_simple_with_fee(y, y_pred, w):
-    ls_ret = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=5)
-    return sharpe_simple(ls_ret, annual_periods=_annual_bar_8h)
+    ls_ret, duprate = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=5)
+    if ls_ret.size and duprate < _duprate_thresh:
+        return sharpe_simple(ls_ret, annual_periods=_annual_bar_8h)
+    else:
+        return _bad_fitness_val
 
 def pfl5_longshort_sharpe_simple_with_fee_4h(y, y_pred, w):
-    ls_ret = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=5)
-    return sharpe_simple(ls_ret, annual_periods=_annual_bar_4h)
+    ls_ret, duprate = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=5)
+    if ls_ret.size and duprate < _duprate_thresh:
+        return sharpe_simple(ls_ret, annual_periods=_annual_bar_8h)
+    else:
+        return _bad_fitness_val
     
 
 _extra_fitness_map = {
