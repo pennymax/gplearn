@@ -5,11 +5,10 @@ import functools
 
 from .functions import _Function
 from joblib import wrap_non_picklable_objects
-import pandas_ta as ta
 import talib
 from talib import MA_Type ## MA_Type.SMA, EMA, WMA, DEMA, TEMA, TRIMA, KAMA, MAMA, T3
 import bottleneck as bn
-import numba as nb
+from numba import njit
 import time
 import polars as pl
 import numbagg as nbgg
@@ -552,6 +551,25 @@ def ta_VWMA(x1, x2, w=5):     ## use VWMA as an arity 2 func
     return apply_column_2(x1, x2, _vwma, w=w)
 _extra_function_map.update({f'ta_VWMA_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_VWMA(x, w)), name=f'ta_VWMA_{w}', arity=2) for w in ts_wins if w >=5})
 
+
+## [Test startpoint dependency] failed
+@pre_and_post_process_2
+def ta_OBV(x1, x2):     ## use OBV as an arity 2 func
+    return apply_column_2(x1, x2, talib.OBV)
+_extra_function_map.update({f'ta_OBV': _Function(function=wrap_non_picklable_objects(ta_OBV), name=f'ta_OBV', arity=2)})
+
+## [Test startpoint dependency] failed
+@pre_and_post_process_2
+def cszs_ta_OBV(x1, x2):     ## use OBV as an arity 2 func
+    return apply_column_2(cs_zscore(x1), cs_zscore(x2), talib.OBV)
+_extra_function_map.update({f'cszs_ta_OBV': _Function(function=wrap_non_picklable_objects(cszs_ta_OBV), name=f'cszs_ta_OBV', arity=2)})
+
+## [Test startpoint dependency] failed
+@pre_and_post_process_2
+def tszs_ta_OBV(x1, x2, w):     ## use OBV as an arity 2 func
+    return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
+_extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
+
 # endregion
 
 # region ==== TA functions: Cycle ====
@@ -596,6 +614,45 @@ _extra_function_map.update({f'ta_HTSINE_LEADSINE': _Function(function=wrap_non_p
 def ta_HTTRENDMODE(x):   # Hilbert Transform
     return np.apply_along_axis(talib.HT_TRENDMODE, 0, x).astype(np.float64)
 _extra_function_map.update({f'ta_HTTRENDMODE': _Function(function=wrap_non_picklable_objects(ta_HTTRENDMODE), name=f'ta_HTTRENDMODE', arity=1)})
+
+
+## [Test startpoint dependency] failed
+
+## below np_flex is from pandas_ta: # from pandas_ta.cycles.reflex import np_reflex
+@njit
+def np_reflex(x, n, k, alpha, pi, sqrt2):
+    m, ratio = x.size, 2 * sqrt2 / k
+    a = np.exp(-pi * ratio)
+    b = 2 * a * np.cos(180 * ratio)
+    c = a * a - b + 1
+
+    _f = np.zeros_like(x)
+    _ms = np.zeros_like(x)
+    result = np.zeros_like(x)
+
+    for i in range(2, m):
+        _f[i] = 0.5 * c * (x[i] + x[i - 1]) + b * _f[i - 1] - a * a * _f[i - 2]
+
+    for i in range(n, m):
+        slope = (_f[i - n] - _f[i]) / n
+
+        _sum = 0
+        for j in range(1, n):
+            _sum += _f[i] - _f[i - j] + j * slope
+        _sum /= n
+
+        _ms[i] = alpha * _sum * _sum + (1 - alpha) * _ms[i - 1]
+        if _ms[i] != 0.0:
+            result[i] = _sum / np.sqrt(_ms[i])
+
+    return result
+
+@pre_and_post_process
+def ta_REFLEX(x, w=10):
+    ret = np.apply_along_axis(np_reflex, 0, x, n=w, k=w, alpha=0.04, pi=3.14159, sqrt2=1.414)
+    ret[:w, :] = np.nan
+    return ret
+_extra_function_map.update({f'ta_REFLEX_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_REFLEX(x, w)), name=f'ta_REFLEX_{w}', arity=1) for w in ts_wins if w >=10})
 
 
 # endregion
@@ -910,15 +967,6 @@ _extra_function_map.update({f'ta_KAMA_{w}': _Function(function=wrap_non_picklabl
 
 # region ======= disabled functions
 
-## [Test startpoint dependency] failed
-from pandas_ta.cycles.reflex import np_reflex
-@pre_and_post_process
-def ta_REFLEX(x, w=10):
-    ret = np.apply_along_axis(np_reflex, 0, x, n=w, k=w, alpha=0.04, pi=3.14159, sqrt2=1.414)
-    ret[:w, :] = np.nan
-    return ret
-# _extra_function_map.update({f'ta_REFLEX_{w}': _Function(function=wrap_non_picklable_objects(lambda x, w=w: ta_REFLEX(x, w)), name=f'ta_REFLEX_{w}', arity=1) for w in ts_wins if w >=10})
-
 ## [Test high nan ratio] failed (1.0 on 0.2 nan rate)
 def ta_HTPHASOR_QUADRATURE(x):   # Hilbert Transform
     return np.apply_along_axis(_ta_HTPHASOR, 0, x, mode='q')
@@ -941,23 +989,6 @@ def ta_ACOS(x):
 def ta_ASIN(x):  
     return np.apply_along_axis(talib.ASIN, 0, x)
 # _extra_function_map.update({f'ta_ASIN': _Function(function=wrap_non_picklable_objects(ta_ASIN), name=f'ta_ASIN', arity=1)})
-
-
-## [Test startpoint dependency] failed
-@pre_and_post_process_2
-def ta_OBV(x1, x2):     ## use OBV as an arity 2 func
-    return apply_column_2(x1, x2, talib.OBV)
-# _extra_function_map.update({f'ta_OBV': _Function(function=wrap_non_picklable_objects(ta_OBV), name=f'ta_OBV', arity=2)})
-
-@pre_and_post_process_2
-def cszs_ta_OBV(x1, x2):     ## use OBV as an arity 2 func
-    return apply_column_2(cs_zscore(x1), cs_zscore(x2), talib.OBV)
-# _extra_function_map.update({f'cszs_ta_OBV': _Function(function=wrap_non_picklable_objects(cszs_ta_OBV), name=f'cszs_ta_OBV', arity=2)})
-
-@pre_and_post_process_2
-def tszs_ta_OBV(x1, x2, w):     ## use OBV as an arity 2 func
-    return apply_column_2(ts_zscore(x1, w=w), ts_zscore(x2, w=w), talib.OBV)
-# _extra_function_map.update({f'tszs_{w}_ta_OBV': _Function(function=wrap_non_picklable_objects(lambda x1, x2, w=w: tszs_ta_OBV(x1, x2, w)), name=f'tszs_{w}_ta_OBV', arity=2) for w in tszs_wins})
 
 
 # endregion
