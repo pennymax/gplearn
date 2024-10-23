@@ -126,6 +126,13 @@ def pfl5_longshort_sharpe_simple_with_fee(y, y_pred, w):
         return sharpe_simple(ls_ret, annual_periods=_annual_bar_8h)
     else:
         return _bad_fitness_val
+    
+def pfl20_longshort_sharpe_simple_with_fee(y, y_pred, w):
+    ls_ret, duprate = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=20)
+    if ls_ret.size and duprate < _duprate_thresh:
+        return sharpe_simple(ls_ret, annual_periods=_annual_bar_8h)
+    else:
+        return _bad_fitness_val
 
 def pfl5_longshort_sharpe_simple_with_fee_4h(y, y_pred, w):
     ls_ret, duprate = convert_factor_value_to_returns(y, y_pred, w, _fee_rate, pfl_cnt=5)
@@ -137,10 +144,13 @@ def pfl5_longshort_sharpe_simple_with_fee_4h(y, y_pred, w):
 
 _extra_fitness_map = {
 
-    ## Sharpe simple (8h)
+    ## Sharpe simple pfl5 (8h)
     'pfl5_longshort_sharpe_simple_with_fee':  _Fitness(function=pfl5_longshort_sharpe_simple_with_fee, greater_is_better=True), 
+    
+    ## Sharpe simple pfl20 (8h)
+    'pfl20_longshort_sharpe_simple_with_fee':  _Fitness(function=pfl20_longshort_sharpe_simple_with_fee, greater_is_better=True), 
 
-    ## Sharpe simple (4h)
+    ## Sharpe simple pfl5 (4h)
     'pfl5_longshort_sharpe_simple_with_fee_4h':  _Fitness(function=pfl5_longshort_sharpe_simple_with_fee_4h, greater_is_better=True), 
 }
 
